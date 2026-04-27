@@ -12,7 +12,7 @@ char *prog_name;
 
 void print_version(void)
 {
-    printf("EMU2 - Simple x86 + DOS Emulator, version " EMU2_VERSION
+    printf("emergency - Simple x86 + DOS Emulator, version " EMU2_VERSION
 #ifdef __DATE__
            "  (Compiled " __DATE__ ")"
 #endif
@@ -65,7 +65,7 @@ NORETURN void print_usage_error(const char *format, ...)
 NORETURN void print_error(const char *format, ...)
 {
     va_list ap;
-    fprintf(stderr, "%s: ", prog_name);
+    fprintf(stderr, "%s: ", );
     va_start(ap, format);
     vfprintf(stderr, format, ap);
     va_end(ap);

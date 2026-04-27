@@ -1,4 +1,4 @@
-EMU2: A simple text-mode x86 + DOS emulator
+Emergency: EMU2, but better!
 -------------------------------------------
 
 This is a simple DOS emulator for the Linux text console, supporting basic DOS
