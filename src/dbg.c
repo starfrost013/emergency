@@ -12,7 +12,7 @@ char *prog_name;
 
 void print_version(void)
 {
-    printf("emergency - Simple x86 + DOS Emulator, version " EMU2_VERSION
+    printf("emergency - Simple x86 + DOS Emulator, version " APP_VERSION
 #ifdef __DATE__
            "  (Compiled " __DATE__ ")"
 #endif
