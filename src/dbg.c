@@ -65,7 +65,7 @@ NORETURN void print_usage_error(const char *format, ...)
 NORETURN void print_error(const char *format, ...)
 {
     va_list ap;
-    fprintf(stderr, "%s: ", );
+    fprintf(stderr, "%s: ", prog_name);
     va_start(ap, format);
     vfprintf(stderr, format, ap);
     va_end(ap);

@@ -21,9 +21,9 @@ OBJS=\
  video.o\
 
 .PHONY: all
-all: emu2
+all: emergency
 
-emu2: $(OBJS:%=obj/%)
+emergency: $(OBJS:%=obj/%)
 	$(CC) -o $@ $^ $(LDFLAGS) $(LDLIBS)
 
 obj/%.o: src/%.c | obj
@@ -33,17 +33,17 @@ obj:
 
 .PHONY: clean distclean
 clean distclean:
-	rm -f .test.c .test.out $(OBJS:%=obj/%) emu2
+	rm -f .test.c .test.out $(OBJS:%=obj/%) emergency
 	test -d obj && rmdir obj || true
 
 .PHONY: install
-install: emu2
+install: emergency
 	$(INSTALL) -d $(DESTDIR)${PREFIX}/bin
-	$(INSTALL) -s emu2 $(DESTDIR)${PREFIX}/bin
+	$(INSTALL) -s emergency $(DESTDIR)${PREFIX}/bin
 
 .PHONY: uninstall
 uninstall:
-	rm -f $(DESTDIR)${PREFIX}/bin/emu2
+	rm -f $(DESTDIR)${PREFIX}/bin/emergency
 
 # Generated with gcc -MM src/*.c
 obj/codepage.o: src/codepage.c src/codepage.h src/dbg.h src/os.h src/env.h
