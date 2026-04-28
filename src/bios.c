@@ -1,8 +1,20 @@
 /* bios.c: System BIOS */
 
+#include "bios.h"
 #include "dbg.h"
+#include "dos.h"
 #include "emu.h"
 #include "keyb.h"
+#include "timer.h"
+#include "video.h"
+
+void intr06(void)
+{
+    uint16_t ip = cpuGetStack(0);
+    uint16_t cs = cpuGetStack(2);
+    print_error("error, unimplemented opcode %02X at cs:ip = %04X:%04X\n",
+                memory[cpuGetAddress(cs, ip)], cs, ip);
+}
 
 // BIOS - GET EQUIPMENT FLAG
 void intr11(void)
@@ -23,50 +35,14 @@ NORETURN void intr19(void)
     exit(0);
 }
 
+
 // DOS/BIOS interface
 void bios_routine(unsigned inum)
 {
-    if(inum == 0x21)
-        intr21();
-    else if(inum == 0x20)
-        intr20();
-    else if(inum == 0x22)
-        intr22();
-    else if(inum == 0x1A)
-        intr1A();
-    else if(inum == 0x19)
-        intr19();
-    else if(inum == 0x16)
-        intr16();
-    else if(inum == 0x10)
-        intr10();
-    else if(inum == 0x11)
-        intr11();
-    else if(inum == 0x12)
-        intr12();
-    else if(inum == 0x06)
-    {
-        uint16_t ip = cpuGetStack(0);
-        uint16_t cs = cpuGetStack(2);
-        print_error("error, unimplemented opcode %02X at cs:ip = %04X:%04X\n",
-                    memory[cpuGetAddress(cs, ip)], cs, ip);
-    }
-    else if(inum == 0x28)
-        intr28();
-    else if(inum == 0x25)
-        intr25();
-    else if(inum == 0x29)
-        intr29();
-    else if(inum == 0x2A)
-        intr2a();
-    else if(inum == 0x2f)
-        intr2f();
-    else if(inum == 0x8)
-        ; // Timer interrupt - nothing to do
-    else if(inum == 0x9)
-        keyb_handle_irq(); // Keyboard interrupt
+    if (inum <= BIOS_LAST_INTERRUPT && bios_interrupts[inum].func != NULL)
+        bios_interrupts[inum].func();
     else
-        debug(debug_int, "UNHANDLED INT %02x, AX=%04x\n", inum, cpuGetAX());
+        debug(debug_int, "UNHANDLED BIOS INT %02x, AX=%04x\n", inum, cpuGetAX());
 }
 
 
@@ -92,3 +68,18 @@ void init_bios_mem(void)
 
     update_timer();
 }
+
+// BIOS - INTERRUPT TABLE
+interrupt_table_t bios_interrupts[] =
+{
+    NULL, NULL, NULL, NULL, 
+    NULL, intr06, NULL, NULL,
+    keyb_handle_irq, NULL, NULL, NULL, 
+    NULL, NULL, NULL, NULL,
+      
+    intr10, intr11, intr12, NULL,
+    NULL, NULL, intr16, NULL,
+    intr19, intr1A, NULL, NULL,
+    NULL, NULL, NULL, NULL,
+
+};

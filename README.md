@@ -31,7 +31,7 @@ The full usage is:
 Options (should be placed *before* the DOS program name):
 - `-h`        Shows a brief help.
 
-- `-b addr`   Load header-less binary at given address (to load ROMs or test data).
+- `-b <addr>`   Load header-less binary (.COM) at given address (to load ROMs or test data).
 
 - `-r <seg>:<ip>`  Specify a run address to start execution (only for binary loaded data).
 

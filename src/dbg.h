@@ -18,6 +18,7 @@ enum debug_type
     debug_port,
     debug_dos,
     debug_video,
+    debug_verbose, 
     debug_MAX
 };
 

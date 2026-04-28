@@ -35,6 +35,7 @@ static uint32_t dos_append;
 // Last error - used to implement "get extended error"
 static uint8_t dos_error;
 
+
 // Returns "APPEND" path, if activated:
 static const char *append_path(void)
 {
@@ -2720,6 +2721,17 @@ void init_dos(int argc, char **argv)
     cpuClrStartupFlag(cpuFlag_TF);
 }
 
+void dos_api_enter(int intnum)
+{
+    if (intnum > DOS_LAST_INTERRUPT)
+        return;
+
+    if (dos_interrupts[intnum].func != NULL)
+        dos_interrupts[intnum].func();
+    else
+        debug(debug_int, "UNHANDLED DOS INT %02x, AX=%04x\n", intnum, cpuGetAX());
+}
+
 void intr28(void)
 {
     cpu_usleep(1); // TODO: process messages?
@@ -2733,3 +2745,22 @@ void intr29(void)
     debug(debug_dos, "D-29:   fast console out  AX=%04X\n", ax);
     dos_putchar(ax & 0xFF, 1);
 }
+
+// BIOS - INTERRUPT TABLE
+interrupt_table_t dos_interrupts[] =
+{
+    NULL, NULL, NULL, NULL, 
+    NULL, NULL, NULL, NULL,
+    NULL, NULL, NULL, NULL, 
+    NULL, NULL, NULL, NULL,
+      
+    NULL, NULL, NULL, NULL, 
+    NULL, NULL, NULL, NULL,
+    NULL, NULL, NULL, NULL, 
+    NULL, NULL, NULL, NULL,
+
+    intr20, intr21, intr22, NULL, 
+    NULL, intr25, NULL, NULL,
+    intr28, intr29, intr2a, NULL,
+    NULL, NULL, NULL, intr2f,
+};

@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "bios.h"
 #include "cpu.h"
 #include "dbg.h"
 #include "dis.h"
@@ -418,12 +419,19 @@ static void SetModRMRMB(unsigned ModRM, uint8_t val)
 
 static void next_instruction(void)
 {
+    // THis code sucks
     start_ip = ip;
-    if(sregs[CS] == 0 && ip < 0x100) // Handle our BIOS codes
+    if(sregs[CS] == 0 && ip <= (BIOS_LAST_INTERRUPT << 2)) // Handle our BIOS codes
     {
         FETCH_B();
         bios_routine(ip - 1);
-        do_instruction(0xCF);
+        do_instruction(0xCF); // fire interrupt
+    }
+    else if (sregs[CS] == 0 && ip <= 0x100)
+    {
+        FETCH_B();
+        dos_api_enter(ip - 1);
+        do_instruction(0xCF); // fire interrupt
     }
     else
         do_instruction(FETCH_B());

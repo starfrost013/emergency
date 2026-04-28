@@ -532,7 +532,8 @@ int dos_path_normalize(char *path, unsigned max)
 // Get UNIX base path:
 static const char *get_base_path(int drive)
 {
-    char env[15] = ENV_DRIVE "\0\0";
+    // What!
+    char env[32] = ENV_DRIVE "\0\0";
     env[strlen(env)] = drive + 'A';
     char *base = getenv(env);
     if(!base)

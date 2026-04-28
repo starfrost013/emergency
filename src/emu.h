@@ -158,4 +158,11 @@ static inline char *getstr(uint32_t addr, unsigned size)
     return buf[cbuf];
 }
 
+// Interrupt table
+typedef struct interrupt_table_s
+{
+    void (*func)();
+} interrupt_table_t;
+
+
 #endif // EMU_H
