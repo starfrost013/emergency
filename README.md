@@ -1,4 +1,4 @@
-Emergency: EMU2, but better!
+Emergency: EMERGENCY, but better!
 -------------------------------------------
 
 This is a simple DOS emulator for the Linux text console, supporting basic DOS
@@ -10,15 +10,15 @@ Installation
     make
     sudo make install
 
-The above installs `emu2` into `$(DESTDIR)${PREFIX}/bin/emu2`, this is
-`/usr/bin/emu2` by default.
+The above installs `emergency` into `$(DESTDIR)${PREFIX}/bin/emergency`, this is
+`/usr/bin/emergency` by default.
 
 Using the emulator
 ------------------
 
 To run a DOS `.exe` or `.com` file, simply load it with
 
-    emu2 myprog.exe
+    emergency myprog.exe
 
 The emulator accepts some options in the command line and more options as
 environment variables, this allows child process (programs run by your DOS
@@ -26,7 +26,7 @@ program) to inherit the configuration.
 
 The full usage is:
 
-    emu2 [options] <prog.exe> [args...] [-- environment vars]
+    emergency [options] <prog.exe> [args...] [-- environment vars]
 
 Options (should be placed *before* the DOS program name):
 - `-h`        Shows a brief help.
@@ -36,25 +36,25 @@ Options (should be placed *before* the DOS program name):
 - `-r <seg>:<ip>`  Specify a run address to start execution (only for binary loaded data).
 
 The available environment variables are:
-- `EMU2_DEBUG_NAME`    Base name of a file to write the debug log, defaults to
+- `EMERGENCY_DEBUG_NAME`    Base name of a file to write the debug log, defaults to
                        the exe name if not given.
 
-- `EMU2_DEBUG`         List of debug options to activate, from the following:
+- `EMERGENCY_DEBUG`         List of debug options to activate, from the following:
                        `cpu`, `int`, `port`, `dos`, `video`.
 
-- `EMU2_PROGNAME`      DOS program name, if not given try to convert the unix
+- `EMERGENCY_PROGNAME`      DOS program name, if not given try to convert the unix
                        name to an equivalent DOS path.
 
-- `EMU2_DEFAULT_DRIVE` DOS default (current) drive letter, if not given use `C:`
+- `EMERGENCY_DEFAULT_DRIVE` DOS default (current) drive letter, if not given use `C:`
 
-- `EMU2_CWD`           DOS current working directory, if not given tries to convert
+- `EMERGENCY_CWD`           DOS current working directory, if not given tries to convert
                        the current directory to the equivalent DOS path inside the
                        DOS default drive, or `C:\` if not possible.
 
-- `EMU2_DRIVE_`n       Set unix path as root of drive `n`, by default all drives
+- `EMERGENCY_DRIVE_`n       Set unix path as root of drive `n`, by default all drives
                        point to the unix working directory.
 
-- `EMU2_APPEND`        Sets a list of paths to search for data files on open,
+- `EMERGENCY_APPEND`        Sets a list of paths to search for data files on open,
                        emulating the DOS `APPEND` command. Only files with a
                        relative path are included in the search, and the search
                        is relative to the current working directory if no drive
@@ -63,7 +63,7 @@ The available environment variables are:
                        file "`CAT.TXT`" the file is searched as "`CAT.TXT`",
                        "`TXT\CAT.TXT`" and "`C:\IN\CAT.TXT`" in turn.
 
-- `EMU2_CODEPAGE`      Set DOS code-page to the specified string. Set to '?' to
+- `EMERGENCY_CODEPAGE`      Set DOS code-page to the specified string. Set to '?' to
                        show list of included code-pages, multiple aliases
                        separated with commas.  Set to a file name to read the
                        mapping table from a file with the unicode value for
@@ -73,23 +73,23 @@ The available environment variables are:
                        output, but does not change the DOS NLS information.
                        The default code-page is CP437.
 
-- `EMU2_LOWMEM`        Limits main memory to 512KB, this fixes some old DOS
+- `EMERGENCY_LOWMEM`        Limits main memory to 512KB, this fixes some old DOS
                        programs with a bug that checks available memory using
                        "signed" comparison instructions (JLE instead of JBE).
                        This is needed at least for MASM versions 1.0 and 1.10.
 
-- `EMU2_DOSVER`        Changes the reported DOS version, allowing programs that
+- `EMERGENCY_DOSVER`        Changes the reported DOS version, allowing programs that
                        checks this version to run.  You can specify a major
                        version or a major dot minor, for example "3.20", "2.11"
                        or "5".
 
-- `EMU2_ROWS`          Setups the VGA text mode to the given number of rows,
+- `EMERGENCY_ROWS`          Setups the VGA text mode to the given number of rows,
                        from 12 to 50 at the program start. Some full-screen DOS
                        programs will retrieve this info and adjust the screen
                        properly, some other will ignore this and setup the text
                        mode again.
 
-- `EMU2_CPU_SPEED`     Limits the emulated CPU speed to at most the given
+- `EMERGENCY_CPU_SPEED`     Limits the emulated CPU speed to at most the given
                        number of instructions per millisecond. For reference,
                        a value of 1000 (1 MIPS) approximates a fast 8086 or
                        slow 80286. By default (or when set to 0), there is no
@@ -123,7 +123,7 @@ The last is necessary as you will want to to modify the program files afterwards
 The main file is named "TURBO.COM", there is also a "README.COM" to read further
 info, try that:
 
-    $ emu2 README.COM
+    $ emergency README.COM
 
 ![Image of README.COM](doc/readme.com.png)
 
@@ -131,7 +131,7 @@ You can press exit to return to the command line. Now, you can configure the com
 as the README said, just load `TINST.COM`, press "S" (screen type), "0" (default), "N"
 (screen does not blink) and "Q" to quit.
 
-    $ emu2 TINST.COM
+    $ emergency TINST.COM
 
                        TURBO Pascal installation menu.
                  Choose installation item from the following:
@@ -156,7 +156,7 @@ as the README said, just load `TINST.COM`, press "S" (screen type), "0" (default
 
 Finally, we are ready to run the program:
 
-    $ emu2 TURBO.COM
+    $ emergency TURBO.COM
     ----------------------------------------
     TURBO Pascal system        Version 3.02A
                                       PC-DOS
@@ -241,7 +241,7 @@ To install, let's first copy all the contents to one directory:
 
 And now, run the emulator giving the correct paths to simulate a floppy drive:
 
-    $ EMU2_DEFAULT_DRIVE=A EMU2_DRIVE_A=all emu2 all/INSTALL.EXE
+    $ EMERGENCY_DEFAULT_DRIVE=A EMERGENCY_DRIVE_A=all emergency all/INSTALL.EXE
 
 ![Image of TP55 INSTALL.EXE](doc/tp55.inst-1.png)
 
@@ -252,7 +252,7 @@ we copied all the content to one drive. Simply type "S" to skip all errors.
 After the installation is finished, we must run the install again, to copy the missing files
 from before, with the same command line:
 
-    $ EMU2_DEFAULT_DRIVE=A EMU2_DRIVE_A=all emu2 all/INSTALL.EXE
+    $ EMERGENCY_DEFAULT_DRIVE=A EMERGENCY_DRIVE_A=all emergency all/INSTALL.EXE
 
 ![Image of TP55 INSTALL.EXE at the end](doc/tp55.inst-2.png)
 
@@ -261,7 +261,7 @@ without errors.
 
 You can now compile from the command line, as:
 
-    $ emu2 tp/tpc.exe -- 'PATH=C:\TP'
+    $ emergency tp/tpc.exe -- 'PATH=C:\TP'
     Turbo Pascal Version 5.5  Copyright (c) 1983,89 Borland International
     Syntax: TPC [options] filename [options]
     /B	Build all units		/$A-	No word alignment
@@ -280,17 +280,17 @@ You can now compile from the command line, as:
     /Uxxx	Unit directories
     /V	EXE debug information
 
-    $ emu2 tp/tpc.exe tp\\qsort.pas -- 'PATH=C:\TP'
+    $ emergency tp/tpc.exe tp\\qsort.pas -- 'PATH=C:\TP'
     Turbo Pascal Version 5.5  Copyright (c) 1983,89 Borland International
     TP\QSORT.PAS(66)
     66 lines, 4384 bytes code, 2668 bytes data.
 
-    $ emu2 tp/qsort.exe
+    $ emergency tp/qsort.exe
     ....
 
 And for the IDE, you can use:
 
-    emu2 tp/turbo.exe  -- 'PATH=C:\TP'
+    emergency tp/turbo.exe  -- 'PATH=C:\TP'
 
 ![Image of TP55 environment](doc/tp55.turbo.png)
 
