@@ -37,7 +37,11 @@ void cpuTriggerIRQ(int num);
 // Register reading/writing
 void cpuSetAL(unsigned v);
 void cpuSetAX(unsigned v);
+void cpuSetCL(unsigned v);
+void cpuSetCH(unsigned v);
 void cpuSetCX(unsigned v);
+void cpuSetDL(unsigned v);
+void cpuSetDH(unsigned v);
 void cpuSetDX(unsigned v);
 void cpuSetBX(unsigned v);
 void cpuSetSP(unsigned v);
@@ -51,7 +55,11 @@ void cpuSetDS(unsigned v);
 void cpuSetIP(unsigned v);
 
 unsigned cpuGetAX(void);
+unsigned cpuGetCL(void);
+unsigned cpuGetCH(void);
 unsigned cpuGetCX(void);
+unsigned cpuGetDL(void);
+unsigned cpuGetDH(void);
 unsigned cpuGetDX(void);
 unsigned cpuGetBX(void);
 unsigned cpuGetSP(void);

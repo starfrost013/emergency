@@ -2642,7 +2642,11 @@ void cpu_usleep(int us)
 // Set CPU registers from outside
 void cpuSetAL(unsigned v) { wregs[AX] = (wregs[AX] & 0xFF00) | (v & 0xFF); }
 void cpuSetAX(unsigned v) { wregs[AX] = v; }
+void cpuSetCL(unsigned v) { wregs[CX] = (wregs[CX] & 0xFF00) | (v & 0xFF); };
+void cpuSetCH(unsigned v) { wregs[CX] = ((v & 0xFF) << 8) | (wregs[CX] & 0xFF); };
 void cpuSetCX(unsigned v) { wregs[CX] = v; }
+void cpuSetDL(unsigned v) { wregs[DX] = (wregs[DX] & 0xFF00) | (v & 0xFF); };
+void cpuSetDH(unsigned v) { wregs[DX] = ((v & 0xFF) << 8) | (wregs[DX] & 0xFF); };
 void cpuSetDX(unsigned v) { wregs[DX] = v; }
 void cpuSetBX(unsigned v) { wregs[BX] = v; }
 void cpuSetSP(unsigned v) { wregs[SP] = v; }
@@ -2657,7 +2661,11 @@ void cpuSetIP(unsigned v) { ip = v; }
 
 // Get CPU registers from outside
 unsigned cpuGetAX(void) { return wregs[AX]; }
+unsigned cpuGetCL(void) { return (wregs[CX]) & 0xFF; }
+unsigned cpuGetCH(void) { return (wregs[CX] >> 8) & 0xFF; }
 unsigned cpuGetCX(void) { return wregs[CX]; }
+unsigned cpuGetDL(void) { return (wregs[DX]) & 0xFF; }
+unsigned cpuGetDH(void) { return (wregs[DX] >> 8) & 0xFF; }
 unsigned cpuGetDX(void) { return wregs[DX]; }
 unsigned cpuGetBX(void) { return wregs[BX]; }
 unsigned cpuGetSP(void) { return wregs[SP]; }

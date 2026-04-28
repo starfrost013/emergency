@@ -3,6 +3,7 @@
 #include <util/os.h>
 #include <emu.h>
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 

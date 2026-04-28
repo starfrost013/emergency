@@ -1153,7 +1153,7 @@ static void intr21_debug(void)
     else
         fn = "(unknown)";
 
-    debug(debug_dos, "D-21%04X: %-15s BX=%04X CX:%04X DX:%04X DI=%04X DS:%04X ES:%04X\n",
+    debug(debug_dos, "DOS INT 21h %04X: %-15s BX=%04X CX:%04X DX:%04X DI=%04X DS:%04X ES:%04X\n",
           cur.ax, fn, cur.bx, cur.cx, cur.dx, cur.di, cur.ds, cur.es);
 }
 
@@ -1161,14 +1161,14 @@ static void intr21_debug(void)
 // Static set of functions used for DOS devices/extensions and TSR installation checks
 void intr2f(void)
 {
-    debug(debug_int, "D-2F%04X: BX=%04X\n", cpuGetAX(), cpuGetBX());
+    debug(debug_int, "DOS INT 2Fh %04X: BX=%04X\n", cpuGetAX(), cpuGetBX());
     unsigned ax = cpuGetAX();
     switch(ax)
     {
     case 0x1680:
         // Windows "release VM timeslice", use sleep instead of yield to give more
         // cpu to other tasks.
-        debug(debug_dos, "W-2F1680: sleep\n");
+        debug(debug_dos, "Win386 2Fh 1680: sleep\n");
         cpu_usleep(33000);
         break;
     case 0xB700: // APPEND installation check
@@ -1227,6 +1227,8 @@ void intr21(void)
         put16(cpuGetAddress(get_current_PSP(), 0x2E), cpuGetSP());
         put16(cpuGetAddress(get_current_PSP(), 0x30), cpuGetSS());
     }
+
+    bool invalid = false;
 
     switch(ah)
     {
@@ -1620,8 +1622,27 @@ void intr21(void)
         break;
     }
     case 0x2B: // SET SYSTEM DATE
-        // Invalid date - don't support setting date.
-        cpuSetAL(0xFF);
+        // Don't support setting date. But apps need to know we succeeded.
+        // Also, verify thaat the date actually is real
+        invalid = false;
+
+        // invalid year
+        if ((cpuGetCX()) < 1980
+        || cpuGetCX() > 2099)  
+            invalid = true;
+
+        if (!invalid) invalid = (cpuGetCH() > 12); // invalid month
+        if (!invalid) invalid = (cpuGetDH() == 4 || cpuGetDH() == 6 || cpuGetDH() == 11) // 30-day month
+        && cpuGetDL() >= 30; 
+        if (!invalid) invalid = (cpuGetDH() == 2) 
+        && (cpuGetDL() > 28); // 28-day month (no leap year)
+        if (!invalid) invalid = ((cpuGetCX() & 3) == 0)
+        && (cpuGetDH() == 2)
+        && (cpuGetDL() > 29); // 29-day month
+        if (!invalid) invalid = (cpuGetDL() > 31); // 31-day month
+
+        // set result as if we set the date
+        cpuSetAL((invalid) ? 0xFF : 0x00);
         break;
     case 0x2C: // GET SYSTEM TIME
     {
@@ -1640,8 +1661,13 @@ void intr21(void)
         break;
     }
     case 0x2D: // SET SYSTEM TIME
-        // Invalid time - don't support setting time.
-        cpuSetAL(0xFF);
+        // Parse the time as we were setitng it, but don't really set it
+        invalid = (cpuGetCH() > 23
+        || cpuGetCL() > 59
+        || cpuGetDH() > 59
+        || cpuGetDL() > 99);
+
+        cpuSetAL((invalid) ? 0xFF : 0x00);
         break;
     case 0x2F: // GET DTA
         cpuSetES((dosDTA & 0xFFF00) >> 4);

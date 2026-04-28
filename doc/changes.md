@@ -8,3 +8,4 @@
 * Implemented "verbose" debug that spams a bunch of nonsense.
 * Split DOS and BIOS away from each other (DOS has its own interrupt function)
 * Use static tables for interrupts to reduce code spam
+* DOS: Parse system date and time in SET SYSTEM DATE and SET SYSTEM TIME as if we were setting it, but don't set it
