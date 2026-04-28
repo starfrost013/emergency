@@ -421,7 +421,7 @@ static void next_instruction(void)
 {
     // THis code sucks
     start_ip = ip;
-    if(sregs[CS] == 0 && ip <= (BIOS_LAST_INTERRUPT << 2)) // Handle our BIOS codes
+    if(sregs[CS] == 0 && ip <= (BIOS_LAST_INTERRUPT)) // Handle our BIOS codes
     {
         FETCH_B();
         bios_routine(ip - 1);

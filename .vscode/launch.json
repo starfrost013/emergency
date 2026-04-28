@@ -1,11 +1,11 @@
 {
     "configurations": [
     {
-        "name": "(gdb) Launch - Windows 1.01 Debug Kernel",
+        "name": "(gdb) Launch - Windows 1.03 Debug Kernel",
         "type": "cppdbg",
         "request": "launch",
         "program": "${workspaceFolder}/build/src/emergency",
-        "args": ["/media/starfrost/SSD/Users/mario/ModernPersonality/research/win1.01/debug/KERNEL.EXE"],
+        "args": ["/media/starfrost/SSD/Users/mario/ModernPersonality/research/win1.03/emergencyboot/KERNEL.EXE"],
         "stopAtEntry": false,
         "cwd": "${workspaceFolder}/build/src",
         "environment": [
