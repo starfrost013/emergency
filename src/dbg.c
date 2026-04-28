@@ -14,8 +14,10 @@ void print_version(void)
 {
     printf("emergency - Simple x86 + DOS Emulator, version " APP_VERSION
 #ifdef __DATE__
-           "  (Compiled " __DATE__ ")"
+           "  (Compiled " __DATE__ __TIME__")"
 #endif
+           "(c) 2017-2026 \"dmsc\"\n"
+           "(c) 2026 starfrost\n"
            "\n");
 }
 
