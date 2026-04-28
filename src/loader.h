@@ -21,4 +21,5 @@ void mcb_init(uint16_t mem_start, uint16_t mem_end);
 
 // Loaders
 int dos_load_exe(FILE *f, uint16_t psp_mcb);
+int dos_load_bin(const char *name, int bin_load_addr);
 int dos_read_overlay(FILE *f, uint16_t load_seg, uint16_t reloc_seg);

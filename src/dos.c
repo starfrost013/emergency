@@ -2403,6 +2403,31 @@ NORETURN void intr22(void)
     exit(return_code & 0xFF);
 }
 
+// Network access, ignored.
+void intr2a(void) {}
+
+// Absolute disk read
+void intr25(void)
+{
+    debug(debug_int, "D-25%04X: CX=%04X\n", cpuGetAX(), cpuGetCX());
+    // AH=80 : timeout
+    // AL=02 : drive not ready
+    cpuSetAX(0x8002);
+    cpuSetFlag(cpuFlag_CF);
+
+    // This call returns via RETF instead of IRET, we simulate this by
+    // manipulating stack directly.
+    // POP IP / CS / FLAGS
+    int ip = cpuPopWord();
+    int cs = cpuPopWord();
+    int flags = cpuPopWord();
+    // PUSH flags twice
+    cpuPushWord(flags);
+    cpuPushWord(flags);
+    cpuPushWord(cs);
+    cpuPushWord(ip);
+}
+
 static char *addstr(char *dst, const char *src, int limit)
 {
     while(limit > 0 && *src)

@@ -10,5 +10,7 @@ NORETURN void intr20(void);
 void intr21(void);
 void intr2f(void);
 NORETURN void intr22(void);
+void intr25(void);
 void intr28(void);
 void intr29(void);
+void intr2a(void);

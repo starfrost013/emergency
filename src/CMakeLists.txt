@@ -3,12 +3,14 @@
 # (c) 2026 starfrost
 
 add_executable(emergency
+    bios.c
     codepage.c
     cpu.c
     dbg.c 
     dis.c 
     dos.c
     dosnames.c 
+    io.c
     keyb.c
     loader.c 
     main.c
