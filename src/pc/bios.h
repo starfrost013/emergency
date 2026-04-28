@@ -4,10 +4,10 @@
 
 #include <stdint.h>
 #include <stdlib.h>
-#include "dos.h"
-#include "emu.h"
+#include <dos/dos.h>
+#include <emu.h>
 
-#include "os.h"
+#include <util/os.h>
 
 
 void init_bios_mem(void);

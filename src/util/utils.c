@@ -1,6 +1,6 @@
 /* Platform dependent utility functions */
-#include "utils.h"
-#include "dbg.h"
+#include <util/utils.h>
+#include <pc/dbg.h>
 #include <unistd.h>
 
 #ifdef __APPLE__

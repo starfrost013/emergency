@@ -1,9 +1,9 @@
-#include "video.h"
-#include "codepage.h"
-#include "dbg.h"
-#include "emu.h"
-#include "env.h"
-#include "keyb.h"
+#include <pc/video.h>
+#include <dos/codepage.h>
+#include <pc/dbg.h>
+#include <emu.h>
+#include <util/env.h>
+#include <pc/keyb.h>
 
 #include <errno.h>
 #include <fcntl.h>

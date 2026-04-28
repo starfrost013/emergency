@@ -1,6 +1,6 @@
-#include "loader.h"
-#include "dbg.h"
-#include "emu.h"
+#include <dos/loader.h>
+#include <pc/dbg.h>
+#include <emu.h>
 #include <ctype.h>
 #include <errno.h>
 #include <stdio.h>

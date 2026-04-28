@@ -1,16 +1,16 @@
 
 #define _GNU_SOURCE
 
-#include "bios.h"
-#include "dbg.h"
-#include "dos.h"
-#include "dosnames.h"
-#include "emu.h"
-#include "keyb.h"
-#include "loader.h"
-#include "timer.h"
-#include "video.h"
-#include "os.h"
+#include <pc/bios.h>
+#include <pc/dbg.h>
+#include <dos/dos.h>
+#include <dos/dosnames.h>
+#include <emu.h>
+#include <pc/keyb.h>
+#include <dos/loader.h>
+#include <pc/timer.h>
+#include <pc/video.h>
+#include <util/os.h>
 
 #include <errno.h>
 #include <fcntl.h>

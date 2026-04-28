@@ -3,14 +3,14 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "bios.h"
+#include <pc/bios.h>
 #include "cpu.h"
-#include "dbg.h"
+#include <pc/dbg.h>
 #include "dis.h"
-#include "emu.h"
-#include "env.h"
-#include "os.h"
-#include "utils.h"
+#include <emu.h>
+#include <util/env.h>
+#include <util/os.h>
+#include <util/utils.h>
 
 // Forward declarations
 static void do_instruction(uint8_t code);

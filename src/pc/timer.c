@@ -1,7 +1,7 @@
 
-#include "timer.h"
-#include "dbg.h"
-#include "emu.h"
+#include <pc/timer.h>
+#include <pc/dbg.h>
+#include <emu.h>
 
 #include <inttypes.h>
 #include <math.h>

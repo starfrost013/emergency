@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include "dis.h"
-#include "emu.h"
+#include <emu.h>
 
 static char buf[128];
 #define IPOS (buf + 17)

@@ -1,10 +1,10 @@
 
 #define _GNU_SOURCE
 
-#include "dosnames.h"
-#include "dbg.h"
-#include "emu.h"
-#include "env.h"
+#include <dos/dosnames.h>
+#include <pc/dbg.h>
+#include <emu.h>
+#include <util/env.h>
 #include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,15 +1,15 @@
-#include "dos.h"
-#include "codepage.h"
-#include "dbg.h"
-#include "dosnames.h"
-#include "emu.h"
-#include "env.h"
-#include "keyb.h"
-#include "loader.h"
-#include "os.h"
-#include "timer.h"
-#include "utils.h"
-#include "video.h"
+#include <dos/dos.h>
+#include <dos/codepage.h>
+#include <pc/dbg.h>
+#include <dos/dosnames.h>
+#include <emu.h>
+#include <util/env.h>
+#include <pc/keyb.h>
+#include <dos/loader.h>
+#include <util/os.h>
+#include <pc/timer.h>
+#include <util/utils.h>
+#include <pc/video.h>
 
 #include <errno.h>
 #include <fcntl.h>

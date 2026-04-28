@@ -1,12 +1,12 @@
 /* bios.c: System BIOS */
 
-#include "bios.h"
-#include "dbg.h"
-#include "dos.h"
-#include "emu.h"
-#include "keyb.h"
-#include "timer.h"
-#include "video.h"
+#include <pc/bios.h>
+#include <pc/dbg.h>
+#include <dos/dos.h>
+#include <emu.h>
+#include <pc/keyb.h>
+#include <pc/timer.h>
+#include <pc/video.h>
 
 void intr06(void)
 {

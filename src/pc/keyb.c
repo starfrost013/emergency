@@ -1,8 +1,8 @@
-#include "keyb.h"
-#include "codepage.h"
-#include "dbg.h"
-#include "emu.h"
-#include "os.h"
+#include <pc/keyb.h>
+#include <dos/codepage.h>
+#include <pc/dbg.h>
+#include <emu.h>
+#include <util/os.h>
 
 #include <errno.h>
 #include <fcntl.h>

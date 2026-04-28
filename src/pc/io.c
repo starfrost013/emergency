@@ -1,10 +1,10 @@
 // I/O Ports - X86 I/O Engine
 
-#include "dbg.h"
-#include "emu.h"
-#include "keyb.h"
-#include "timer.h"
-#include "video.h"
+#include <pc/dbg.h>
+#include <emu.h>
+#include <pc/keyb.h>
+#include <pc/timer.h>
+#include <pc/video.h>
 
 uint8_t read_port(unsigned port)
 {

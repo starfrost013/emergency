@@ -1,6 +1,6 @@
-#include "codepage.h"
-#include "dbg.h"
-#include "env.h"
+#include <dos/codepage.h>
+#include <pc/dbg.h>
+#include <util/env.h>
 #include <stdlib.h>
 #include <string.h>
 

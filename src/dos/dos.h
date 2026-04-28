@@ -1,7 +1,7 @@
 #pragma once
 
-#include "os.h"
-#include "emu.h"
+#include <util/os.h>
+#include <emu.h>
 
 #include <stdint.h>
 #include <stdio.h>

@@ -1,9 +1,9 @@
-#include "dbg.h"
-#include "env.h"
-#include "version.h"
-#include "os.h"
+#include <pc/dbg.h>
+#include <util/env.h>
+#include <util/version.h>
+#include <util/os.h>
 
-#include <fcntl.h>
+#include <fcntl.h> 
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
