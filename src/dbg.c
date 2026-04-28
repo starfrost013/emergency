@@ -74,7 +74,7 @@ NORETURN void print_error(const char *format, ...)
 }
 
 static FILE *debug_files[debug_MAX];
-static const char *debug_names[debug_MAX] = {"cpu", "int", "port", "dos", "video"};
+static const char *debug_names[debug_MAX] = {"cpu", "int", "port", "dos", "video", "verbose"};
 
 static FILE *open_log_file(const char *base, const char *type)
 {

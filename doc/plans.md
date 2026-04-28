@@ -8,3 +8,6 @@
 # Emergency 2
 * 8087
 * 80286
+
+# Other stuff we need
+* EMS

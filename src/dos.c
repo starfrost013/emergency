@@ -1647,7 +1647,7 @@ void intr21(void)
         cpuSetES((dosDTA & 0xFFF00) >> 4);
         cpuSetBX((dosDTA & 0x000FF));
         break;
-    case 0x30: // DOS version: 3.30
+    case 0x30: // DOS version: By default 3.30
         cpuSetAX(dosver);
         cpuSetBX(0x0000);
         break;
@@ -2399,7 +2399,7 @@ void intr21(void)
 // DOS int 22 - TERMINATE ADDRESS
 NORETURN void intr22(void)
 {
-    debug(debug_dos, "D-22: TERMINATE HANDLER CALLED\n");
+    debug(debug_dos, "DOS INT 22h: TERMINATE HANDLER CALLED\n");
     // If we reached here, we must terminate now
     exit(return_code & 0xFF);
 }
@@ -2410,7 +2410,7 @@ void intr2a(void) {}
 // Absolute disk read
 void intr25(void)
 {
-    debug(debug_int, "D-25%04X: CX=%04X\n", cpuGetAX(), cpuGetCX());
+    debug(debug_int, "DOS INT 25h %04X: CX=%04X\n", cpuGetAX(), cpuGetCX());
     // AH=80 : timeout
     // AL=02 : drive not ready
     cpuSetAX(0x8002);

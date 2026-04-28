@@ -6,4 +6,5 @@
 * Pulled all non-program-lifetime related functions out of main.c to the new io.c, bios.c and also loader.c and dos.c
 * Rebranded to Emergency!
 * Implemented "verbose" debug that spams a bunch of nonsense.
-* Split DOS and BIOS away from each other
+* Split DOS and BIOS away from each other (DOS has its own interrupt function)
+* Use static tables for interrupts to reduce code spam

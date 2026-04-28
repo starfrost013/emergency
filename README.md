@@ -40,7 +40,7 @@ The available environment variables are:
                        the exe name if not given.
 
 - `EMERGENCY_DEBUG`         List of debug options to activate, from the following:
-                       `cpu`, `int`, `port`, `dos`, `video`.
+                       `cpu`, `int`, `port`, `dos`, `video`, `verbose`.
 
 - `EMERGENCY_PROGNAME`      DOS program name, if not given try to convert the unix
                        name to an equivalent DOS path.
