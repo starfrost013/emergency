@@ -8,7 +8,31 @@
 */
 
 // Enumerate VGA registers
-typedef enum vga_registers
+// We don't care about mono
+typedef enum vga_ports_e
+{   
+    // Write port for data, read/write for address(based on flipflop)
+    VGA_ATTRIBUTE = 0x03C0,
+    VGA_ATTRIBUTE_DATA_WRITE = 0x03C1,
+    VGA_INPUT_0 = 0x03C1, // triggered by register (otherwise VGA_ATTRIBUTE_DATA_WRITE)
+    VGA_MISC_WRITE = 0x03C2,
+    VGA_ENABLE = 0x03C3,
+    VGA_SEQ_ADDRESS = 0x03C4,
+    VGA_SEQ_DATA = 0x03C5,
+    VGA_PALETTE_MASK = 0x03C6,
+    VGA_PALETTE_READ = 0x03C7,
+    VGA_PALETTE_WRITE_ADDR = 0x03C8,
+    VGA_PALETTE_DATA = 0x03C9,
+    VGA_FEATURE_CONTROL = 0x03CA,
+    VGA_INPUT_1_COLOR = 0x03CA,
+    VGA_MISC_READ = 0x03CC,
+    VGA_GRAPHICS_ADDRESS = 0x03CE,
+    VGA_GRAPHICS_DATA = 0x03CF,
+    VGA_CRTC_ADDRESS_COLOR = 0x03D4,
+    VGA_CRTC_DATA_COLOR = 0x03D5,
+} vga_ports;
+
+typedef struct vga_s
 {
 
-};
+} vga_t; 

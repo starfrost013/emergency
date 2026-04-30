@@ -158,7 +158,7 @@ int main(int argc, char **argv)
 
     // Init debug facilities
     init_debug(argv[1]);
-    init_cpu();
+    cpu_init();
 
     if(bin_load_addr >= 0)
     {

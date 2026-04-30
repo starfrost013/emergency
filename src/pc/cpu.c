@@ -13,7 +13,7 @@
 #include <util/utils.h>
 
 // Forward declarations
-static void do_instruction(uint8_t code);
+static void cpu_do_instruction(uint8_t code);
 
 static uint16_t wregs[8];
 static uint16_t sregs[4];
@@ -64,60 +64,60 @@ static void SetMemAbsW(uint32_t addr, uint16_t x)
     memory[(addr + 1) & 0xFFFFF] = x >> 8;
 }
 
-static void SetMemB(uint16_t seg, uint16_t off, uint8_t val)
+static void mem_setb(uint16_t seg, uint16_t off, uint8_t val)
 {
     SetMemAbsB(sregs[seg] * 16 + off, val);
 }
 
-static uint8_t GetMemB(int seg, uint16_t off)
+static uint8_t mem_getb(int seg, uint16_t off)
 {
     return memory[0xFFFFF & (sregs[seg] * 16 + off)];
 }
 
-static void SetMemW(uint16_t seg, uint16_t off, uint16_t val)
+static void mem_setw(uint16_t seg, uint16_t off, uint16_t val)
 {
     SetMemAbsW(sregs[seg] * 16 + off, val);
 }
 
-static uint16_t GetMemW(uint16_t seg, uint16_t off)
+static uint16_t mem_getw(uint16_t seg, uint16_t off)
 {
     return GetMemAbsW(sregs[seg] * 16 + off);
 }
 
 // Read memory via DS, with possible segment override.
-static uint8_t GetMemDSB(uint16_t off)
+static uint8_t mem_getds_b(uint16_t off)
 {
     if(segment_override != NoSeg)
-        return GetMemB(segment_override, off);
+        return mem_getb(segment_override, off);
     else
-        return GetMemB(DS, off);
+        return mem_getb(DS, off);
 }
 
-static uint16_t GetMemDSW(uint16_t off)
+static uint16_t mem_getds_w(uint16_t off)
 {
     if(segment_override != NoSeg)
-        return GetMemW(segment_override, off);
+        return mem_getw(segment_override, off);
     else
-        return GetMemW(DS, off);
+        return mem_getw(DS, off);
 }
 
-static void PutMemDSB(uint16_t off, uint8_t val)
+static void mem_putds_b(uint16_t off, uint8_t val)
 {
     if(segment_override != NoSeg)
-        SetMemB(segment_override, off, val);
+        mem_setb(segment_override, off, val);
     else
-        SetMemB(DS, off, val);
+        mem_setb(DS, off, val);
 }
 
-static void PutMemDSW(uint16_t off, uint16_t val)
+static void mem_putds_w(uint16_t off, uint16_t val)
 {
     if(segment_override != NoSeg)
-        SetMemW(segment_override, off, val);
+        mem_setw(segment_override, off, val);
     else
-        SetMemW(DS, off, val);
+        mem_setw(DS, off, val);
 }
 
-static uint32_t GetAbsAddrSeg(int seg, uint16_t off)
+static uint32_t cpu_get_abs_addr_seg(int seg, uint16_t off)
 {
     if(segment_override != NoSeg && (seg == DS || seg == SS))
         return sregs[segment_override] * 16 + off;
@@ -125,34 +125,34 @@ static uint32_t GetAbsAddrSeg(int seg, uint16_t off)
         return sregs[seg] * 16 + off;
 }
 
-static void PushWord(uint16_t w)
+static void cpu_stack_pushw(uint16_t w)
 {
     wregs[SP] -= 2;
-    SetMemW(SS, wregs[SP], w);
+    mem_setw(SS, wregs[SP], w);
 }
 
 #ifdef CPU_PUSH_80286
 #define PUSH_SP()                                                              \
-    PushWord(wregs[SP]);                                                       \
+    cpu_stack_pushw(wregs[SP]);                                                       \
     break;
 #else
 #define PUSH_SP()                                                              \
-    PushWord(wregs[SP] - 2);                                                   \
+    cpu_stack_pushw(wregs[SP] - 2);                                                   \
     break;
 #endif
 
-static uint16_t PopWord(void)
+static uint16_t cpu_stack_popw(void)
 {
-    uint16_t tmp = GetMemW(SS, wregs[SP]);
+    uint16_t tmp = mem_getw(SS, wregs[SP]);
     wregs[SP] += 2;
     return tmp;
 }
 
 #define PUSH_WR(reg)                                                           \
-    PushWord(wregs[reg]);                                                      \
+    cpu_stack_pushw(wregs[reg]);                                                      \
     break;
 #define POP_WR(reg)                                                            \
-    wregs[reg] = PopWord();                                                    \
+    wregs[reg] = cpu_stack_popw();                                                    \
     break;
 
 #define XCHG_AX_WR(reg)                                                        \
@@ -187,61 +187,61 @@ static uint16_t PopWord(void)
         break;                                                                 \
     }
 
-static uint8_t FETCH_B(void)
+static uint8_t cpu_fetchb(void)
 {
-    uint8_t x = GetMemB(CS, ip);
+    uint8_t x = mem_getb(CS, ip);
     ip++;
     return x;
 }
 
-static uint16_t FETCH_W(void)
+static uint16_t cpu_fetchw(void)
 {
-    uint16_t x = GetMemW(CS, ip);
+    uint16_t x = mem_getw(CS, ip);
     ip += 2;
     return x;
 }
 
 #define GET_br8()                                                              \
-    int ModRM = FETCH_B();                                                     \
-    uint8_t src = GetModRMRegB(ModRM);                                         \
+    int ModRM = cpu_fetchb();                                                     \
+    uint8_t src = cpu_getmodrm_reg_b(ModRM);                                         \
     uint8_t dest = GetModRMRMB(ModRM)
 
 #define SET_br8() SetModRMRMB(ModRM, dest)
 
 #define GET_r8b()                                                              \
-    int ModRM = FETCH_B();                                                     \
-    uint8_t dest = GetModRMRegB(ModRM);                                        \
+    int ModRM = cpu_fetchb();                                                     \
+    uint8_t dest = cpu_getmodrm_reg_b(ModRM);                                        \
     uint8_t src = GetModRMRMB(ModRM)
 
-#define SET_r8b() SetModRMRegB(ModRM, dest)
+#define SET_r8b() cpu_setmodrm_reg_b(ModRM, dest)
 
 #define GET_ald8()                                                             \
     uint8_t dest = wregs[AX] & 0xFF;                                           \
-    uint8_t src = FETCH_B()
+    uint8_t src = cpu_fetchb()
 
 #define SET_ald8() wregs[AX] = (wregs[AX] & 0xFF00) | (dest & 0x00FF)
 
 #define GET_axd16()                                                            \
-    uint16_t src = FETCH_W();                                                  \
+    uint16_t src = cpu_fetchw();                                                  \
     uint16_t dest = wregs[AX];
 
 #define SET_axd16() wregs[AX] = dest
 
 #define GET_wr16()                                                             \
-    int ModRM = FETCH_B();                                                     \
-    uint16_t src = GetModRMRegW(ModRM);                                        \
-    uint16_t dest = GetModRMRMW(ModRM)
+    int ModRM = cpu_fetchb();                                                     \
+    uint16_t src = get_modrm_reg_w(ModRM);                                        \
+    uint16_t dest = get_modrm_rm_w(ModRM)
 
-#define SET_wr16() SetModRMRMW(ModRM, dest)
+#define SET_wr16() set_modrm_rm_w(ModRM, dest)
 
 #define GET_r16w()                                                             \
-    int ModRM = FETCH_B();                                                     \
-    uint16_t dest = GetModRMRegW(ModRM);                                       \
-    uint16_t src = GetModRMRMW(ModRM)
+    int ModRM = cpu_fetchb();                                                     \
+    uint16_t dest = get_modrm_reg_w(ModRM);                                       \
+    uint16_t src = get_modrm_rm_w(ModRM)
 
-#define SET_r16w() SetModRMRegW(ModRM, dest)
+#define SET_r16w() set_modrm_reg_w(ModRM, dest)
 
-void init_cpu(void)
+void cpu_init(void)
 {
     unsigned i, j, c;
 
@@ -282,7 +282,7 @@ void init_cpu(void)
     emu_advance_time(1000, &next_sleep_time);
 }
 
-static uint8_t GetModRMRegB(unsigned ModRM)
+static uint8_t cpu_getmodrm_reg_b(unsigned ModRM)
 {
     unsigned reg = (ModRM >> 3) & 3;
     if(ModRM & 0x20)
@@ -291,7 +291,7 @@ static uint8_t GetModRMRegB(unsigned ModRM)
         return wregs[reg] & 0xFF;
 }
 
-static void SetModRMRegB(unsigned ModRM, uint8_t val)
+static void cpu_setmodrm_reg_b(unsigned ModRM, uint8_t val)
 {
     unsigned reg = (ModRM >> 3) & 3;
     if(ModRM & 0x20)
@@ -300,7 +300,7 @@ static void SetModRMRegB(unsigned ModRM, uint8_t val)
         wregs[reg] = (wregs[reg] & 0xFF00) | val;
 }
 
-#define GetModRMRegW(ModRM) (wregs[(ModRM & 0x38) >> 3])
+#define get_modrm_reg_w(ModRM) (wregs[(ModRM & 0x38) >> 3])
 #define SetModRMRegW(ModRM, val) wregs[(ModRM & 0x38) >> 3] = val;
 
 // Used on LEA instruction
@@ -314,24 +314,24 @@ static uint16_t GetModRMOffset(unsigned ModRM)
     case 0x03: return wregs[BP] + wregs[DI];
     case 0x04: return wregs[SI];
     case 0x05: return wregs[DI];
-    case 0x06: return FETCH_W();
+    case 0x06: return cpu_fetchw();
     case 0x07: return wregs[BX];
-    case 0x40: return wregs[BX] + wregs[SI] + (int8_t)FETCH_B();
-    case 0x41: return wregs[BX] + wregs[DI] + (int8_t)FETCH_B();
-    case 0x42: return wregs[BP] + wregs[SI] + (int8_t)FETCH_B();
-    case 0x43: return wregs[BP] + wregs[DI] + (int8_t)FETCH_B();
-    case 0x44: return wregs[SI] + (int8_t)FETCH_B();
-    case 0x45: return wregs[DI] + (int8_t)FETCH_B();
-    case 0x46: return wregs[BP] + (int8_t)FETCH_B();
-    case 0x47: return wregs[BX] + (int8_t)FETCH_B();
-    case 0x80: return FETCH_W() + wregs[BX] + wregs[SI];
-    case 0x81: return FETCH_W() + wregs[BX] + wregs[DI];
-    case 0x82: return FETCH_W() + wregs[BP] + wregs[SI];
-    case 0x83: return FETCH_W() + wregs[BP] + wregs[DI];
-    case 0x84: return FETCH_W() + wregs[SI];
-    case 0x85: return FETCH_W() + wregs[DI];
-    case 0x86: return FETCH_W() + wregs[BP];
-    case 0x87: return FETCH_W() + wregs[BX];
+    case 0x40: return wregs[BX] + wregs[SI] + (int8_t)cpu_fetchb();
+    case 0x41: return wregs[BX] + wregs[DI] + (int8_t)cpu_fetchb();
+    case 0x42: return wregs[BP] + wregs[SI] + (int8_t)cpu_fetchb();
+    case 0x43: return wregs[BP] + wregs[DI] + (int8_t)cpu_fetchb();
+    case 0x44: return wregs[SI] + (int8_t)cpu_fetchb();
+    case 0x45: return wregs[DI] + (int8_t)cpu_fetchb();
+    case 0x46: return wregs[BP] + (int8_t)cpu_fetchb();
+    case 0x47: return wregs[BX] + (int8_t)cpu_fetchb();
+    case 0x80: return cpu_fetchw() + wregs[BX] + wregs[SI];
+    case 0x81: return cpu_fetchw() + wregs[BX] + wregs[DI];
+    case 0x82: return cpu_fetchw() + wregs[BP] + wregs[SI];
+    case 0x83: return cpu_fetchw() + wregs[BP] + wregs[DI];
+    case 0x84: return cpu_fetchw() + wregs[SI];
+    case 0x85: return cpu_fetchw() + wregs[DI];
+    case 0x86: return cpu_fetchw() + wregs[BP];
+    case 0x87: return cpu_fetchw() + wregs[BX];
     default:   return 0; // TODO: illegal instruction
     }
 }
@@ -357,7 +357,7 @@ static uint32_t GetModRMAddress(unsigned ModRM)
     case 0x84:
     case 0x85:
     case 0x87:
-        return GetAbsAddrSeg(DS, disp);
+        return cpu_get_abs_addr_seg(DS, disp);
     case 0x02:
     case 0x03:
     case 0x42:
@@ -366,14 +366,14 @@ static uint32_t GetModRMAddress(unsigned ModRM)
     case 0x82:
     case 0x83:
     case 0x86:
-        return GetAbsAddrSeg(SS, disp);
+        return cpu_get_abs_addr_seg(SS, disp);
     default:
         return disp; // TODO: illegal instruction
     }
 }
 
 static uint32_t ModRMAddress;
-static uint16_t GetModRMRMW(unsigned ModRM)
+static uint16_t get_modrm_rm_w(unsigned ModRM)
 {
     if(ModRM >= 0xc0)
         return wregs[ModRM & 7];
@@ -395,7 +395,7 @@ static uint8_t GetModRMRMB(unsigned ModRM)
     return GetMemAbsB(ModRMAddress);
 }
 
-static void SetModRMRMW(unsigned ModRM, uint16_t val)
+static void set_modrm_rm_w(unsigned ModRM, uint16_t val)
 {
     if(ModRM >= 0xc0)
         wregs[ModRM & 7] = val;
@@ -423,18 +423,18 @@ static void next_instruction(void)
     start_ip = ip;
     if(sregs[CS] == 0 && ip <= (BIOS_LAST_INTERRUPT)) // Handle our BIOS codes
     {
-        FETCH_B();
+        cpu_fetchb();
         bios_routine(ip - 1);
-        do_instruction(0xCF); // fire interrupt
+        cpu_do_instruction(0xCF); // fire interrupt
     }
     else if (sregs[CS] == 0 && ip <= 0x100)
     {
-        FETCH_B();
+        cpu_fetchb();
         dos_api_enter(ip - 1);
-        do_instruction(0xCF); // fire interrupt
+        cpu_do_instruction(0xCF); // fire interrupt
     }
     else
-        do_instruction(FETCH_B());
+        cpu_do_instruction(cpu_fetchb());
 }
 
 static void interrupt(unsigned int_num)
@@ -444,9 +444,9 @@ static void interrupt(unsigned int_num)
     dest_off = GetMemAbsW(int_num * 4);
     dest_seg = GetMemAbsW(int_num * 4 + 2);
 
-    PushWord(CompressFlags());
-    PushWord(sregs[CS]);
-    PushWord(ip);
+    cpu_stack_pushw(CompressFlags());
+    cpu_stack_pushw(sregs[CS]);
+    cpu_stack_pushw(ip);
 
     ip = dest_off;
     sregs[CS] = dest_seg;
@@ -456,8 +456,8 @@ static void interrupt(unsigned int_num)
 
 static void do_retf(void)
 {
-    ip = PopWord();
-    sregs[CS] = PopWord();
+    ip = cpu_stack_popw();
+    sregs[CS] = cpu_stack_popw();
 }
 
 static void trap_1(void)
@@ -466,9 +466,9 @@ static void trap_1(void)
     interrupt(1);
 }
 
-static void do_popf(void)
+static void cpu_do_popf(void)
 {
-    uint16_t tmp = PopWord();
+    uint16_t tmp = cpu_stack_popw();
     ExpandFlags(tmp);
     if(TF)
         trap_1(); // this is the only way the TRAP flag can be set
@@ -477,7 +477,7 @@ static void do_popf(void)
 static void do_iret(void)
 {
     do_retf();
-    do_popf();
+    cpu_do_popf();
 }
 
 // BOUND or DIV0
@@ -724,30 +724,30 @@ static void handle_irq(void)
     break;
 
 #define MOV_BRH(reg)                                                           \
-    wregs[reg] = ((0x00FF & wregs[reg]) | (FETCH_B() << 8));                   \
+    wregs[reg] = ((0x00FF & wregs[reg]) | (cpu_fetchb() << 8));                   \
     break;
 #define MOV_BRL(reg)                                                           \
-    wregs[reg] = ((0xFF00 & wregs[reg]) | FETCH_B());                          \
+    wregs[reg] = ((0xFF00 & wregs[reg]) | cpu_fetchb());                          \
     break;
 #define MOV_WRi(reg)                                                           \
-    wregs[reg] = FETCH_W();                                                    \
+    wregs[reg] = cpu_fetchw();                                                    \
     break;
 
 #define SEG_OVERRIDE(seg)                                                      \
     {                                                                          \
         segment_override = seg;                                                \
-        do_instruction(FETCH_B());                                             \
+        cpu_do_instruction(cpu_fetchb());                                             \
         segment_override = NoSeg;                                              \
     }                                                                          \
     break;
 
-static void i_undefined(void)
+static void cpu_op_undefined(void)
 {
     // Generate an invalid opcode exception
     cpu_trap(6);
 }
 
-static void i_das(void)
+static void cpu_op_das(void)
 {
     uint8_t old_al = wregs[AX] & 0xFF;
     uint8_t old_CF = CF;
@@ -773,7 +773,7 @@ static void i_das(void)
     wregs[AX] = (wregs[AX] & 0xFF00) | al;
 }
 
-static void i_daa(void)
+static void cpu_op_daa(void)
 {
     uint8_t al = wregs[AX] & 0xFF;
     if(AF || ((al & 0xf) > 9))
@@ -798,7 +798,7 @@ static void i_daa(void)
     SetZFB(al);
 }
 
-static void i_aaa(void)
+static void cpu_op_aaa(void)
 {
     uint16_t ax = wregs[AX];
     if(AF || (ax & 0xF) > 9)
@@ -819,7 +819,7 @@ static void i_aaa(void)
     wregs[AX] = ax;
 }
 
-static void i_aas(void)
+static void cpu_op_aas(void)
 {
     uint16_t ax = wregs[AX];
     if(AF || (ax & 0xF) > 9)
@@ -849,34 +849,34 @@ static void i_aas(void)
     result &= 0xFFFF8000;                                                      \
     CF = OF = ((result != 0) && (result != 0xFFFF8000))
 
-static void i_imul_r16w_d16(void)
+static void cpu_op_imul_r16w_d16(void)
 {
     GET_r16w();
-    int16_t mult = FETCH_W();
+    int16_t mult = cpu_fetchw();
     IMUL_2;
     SET_r16w();
 }
 
-static void i_imul_r16w_d8(void)
+static void cpu_op_imul_r16w_d8(void)
 {
     GET_r16w();
-    int8_t mult = FETCH_B();
+    int8_t mult = cpu_fetchb();
     IMUL_2;
     SET_r16w();
 }
 
-static void do_cjump(unsigned cond)
+static void cpu_do_cond_jump(unsigned cond)
 {
-    int8_t disp = FETCH_B();
+    int8_t disp = cpu_fetchb();
     if(cond)
         ip = ip + disp;
 }
 
-static void i_80pre(void)
+static void cpu_op_80pre(void)
 {
-    int ModRM = FETCH_B();
+    int ModRM = cpu_fetchb();
     uint8_t dest = GetModRMRMB(ModRM);
-    uint8_t src = FETCH_B();
+    uint8_t src = cpu_fetchb();
 
     switch(ModRM & 0x38)
     {
@@ -930,11 +930,11 @@ static void i_80pre(void)
     }
 }
 
-static void i_81pre(void)
+static void cpu_op_81pre(void)
 {
-    int ModRM = FETCH_B();
-    uint16_t dest = GetModRMRMW(ModRM);
-    uint16_t src = FETCH_W();
+    int ModRM = cpu_fetchb();
+    uint16_t dest = get_modrm_rm_w(ModRM);
+    uint16_t src = cpu_fetchw();
 
     switch(ModRM & 0x38)
     {
@@ -988,11 +988,11 @@ static void i_81pre(void)
     }
 }
 
-static void i_82pre(void)
+static void cpu_op_82pre(void)
 {
-    int ModRM = FETCH_B();
+    int ModRM = cpu_fetchb();
     uint8_t dest = GetModRMRMB(ModRM);
-    uint8_t src = (int8_t)FETCH_B();
+    uint8_t src = (int8_t)cpu_fetchb();
 
     switch(ModRM & 0x38)
     {
@@ -1046,11 +1046,11 @@ static void i_82pre(void)
     }
 }
 
-static void i_83pre(void)
+static void cpu_op_83pre(void)
 {
-    int ModRM = FETCH_B();
-    uint16_t dest = GetModRMRMW(ModRM);
-    uint16_t src = (int8_t)FETCH_B();
+    int ModRM = cpu_fetchb();
+    uint16_t dest = get_modrm_rm_w(ModRM);
+    uint16_t src = (int8_t)cpu_fetchb();
 
     switch(ModRM & 0x38)
     {
@@ -1104,7 +1104,7 @@ static void i_83pre(void)
     }
 }
 
-static void i_xchg_br8(void)
+static void cpu_op_xchg_br8(void)
 {
     GET_br8();
     XCHG_8();
@@ -1113,7 +1113,7 @@ static void i_xchg_br8(void)
     SET_r8b();
 }
 
-static void i_xchg_wr16(void)
+static void cpu_op_xchg_wr16(void)
 {
     GET_wr16();
     XCHG_16();
@@ -1122,22 +1122,22 @@ static void i_xchg_wr16(void)
     SET_r16w();
 }
 
-static void i_mov_wsreg(void)
+static void cpu_op_mov_wsreg(void)
 {
-    int ModRM = FETCH_B();
-    GetModRMRMW(ModRM);
-    SetModRMRMW(ModRM, sregs[(ModRM & 0x18) >> 3]);
+    int ModRM = cpu_fetchb();
+    get_modrm_rm_w(ModRM);
+    set_modrm_rm_w(ModRM, sregs[(ModRM & 0x18) >> 3]);
 }
 
-static void i_mov_sregw(void)
+static void cpu_op_mov_sregw(void)
 {
-    int ModRM = FETCH_B();
-    sregs[(ModRM & 0x18) >> 3] = GetModRMRMW(ModRM);
+    int ModRM = cpu_fetchb();
+    sregs[(ModRM & 0x18) >> 3] = get_modrm_rm_w(ModRM);
 }
 
-static void i_lea(void)
+static void cpu_op_lea(void)
 {
-    int ModRM = FETCH_B();
+    int ModRM = cpu_fetchb();
     uint16_t offs = GetModRMOffset(ModRM);
 
     if(ModRM >= 0xc0)
@@ -1146,179 +1146,179 @@ static void i_lea(void)
     SetModRMRegW(ModRM, offs);
 }
 
-static void i_popw(void)
+static void cpu_op_popw(void)
 {
-    int ModRM = FETCH_B();
-    //    if( GetModRMRegW(ModRM) != 0 )
+    int ModRM = cpu_fetchb();
+    //    if( get_modrm_reg_w(ModRM) != 0 )
     //        return; // TODO: illegal instruction - ignored in 8086
     if(ModRM < 0xc0)
         ModRMAddress = GetModRMAddress(ModRM);
-    SetModRMRMW(ModRM, PopWord());
+    set_modrm_rm_w(ModRM, cpu_stack_popw());
 }
 
-static void i_call_far(void)
+static void cpu_op_call_far(void)
 {
-    uint16_t tgt_ip = FETCH_W();
-    uint16_t tgt_cs = FETCH_W();
+    uint16_t tgt_ip = cpu_fetchw();
+    uint16_t tgt_cs = cpu_fetchw();
 
-    PushWord(sregs[CS]);
-    PushWord(ip);
+    cpu_stack_pushw(sregs[CS]);
+    cpu_stack_pushw(ip);
 
     ip = tgt_ip;
     sregs[CS] = tgt_cs;
 }
 
-static void i_sahf(void)
+static void cpu_op_sahf(void)
 {
     uint16_t tmp = (CompressFlags() & 0xff00) | ((wregs[AX] >> 8) & 0xD5);
     ExpandFlags(tmp);
 }
 
-static void i_lahf(void)
+static void cpu_op_lahf(void)
 {
     wregs[AX] = (wregs[AX] & 0xFF) | (CompressFlags() << 8);
 }
 
-static void i_mov_aldisp(void)
+static void cpu_op_mov_aldisp(void)
 {
-    uint16_t addr = FETCH_W();
-    wregs[AX] = (wregs[AX] & 0xFF00) | GetMemDSB(addr);
+    uint16_t addr = cpu_fetchw();
+    wregs[AX] = (wregs[AX] & 0xFF00) | mem_getds_b(addr);
 }
 
-static void i_mov_axdisp(void)
+static void cpu_op_mov_axdisp(void)
 {
-    uint16_t addr = FETCH_W();
-    wregs[AX] = GetMemDSW(addr);
+    uint16_t addr = cpu_fetchw();
+    wregs[AX] = mem_getds_w(addr);
 }
 
-static void i_mov_dispal(void)
+static void cpu_op_mov_dispal(void)
 {
-    uint16_t addr = FETCH_W();
-    PutMemDSB(addr, wregs[AX] & 0xFF);
+    uint16_t addr = cpu_fetchw();
+    mem_putds_b(addr, wregs[AX] & 0xFF);
 }
 
-static void i_mov_dispax(void)
+static void cpu_op_mov_dispax(void)
 {
-    uint16_t addr = FETCH_W();
-    PutMemDSW(addr, wregs[AX]);
+    uint16_t addr = cpu_fetchw();
+    mem_putds_w(addr, wregs[AX]);
 }
 
-static void i_movsb(void)
+static void cpu_op_movsb(void)
 {
-    SetMemB(ES, wregs[DI], GetMemDSB(wregs[SI]));
+    mem_setb(ES, wregs[DI], mem_getds_b(wregs[SI]));
 
     wregs[SI] += 1 - 2 * DF;
     wregs[DI] += 1 - 2 * DF;
 }
 
-static void i_movsw(void)
+static void cpu_op_movsw(void)
 {
-    SetMemW(ES, wregs[DI], GetMemDSW(wregs[SI]));
+    mem_setw(ES, wregs[DI], mem_getds_w(wregs[SI]));
 
     wregs[SI] += 2 - 4 * DF;
     wregs[DI] += 2 - 4 * DF;
 }
 
-static void i_cmpsb(void)
+static void cpu_op_cmpsb(void)
 {
-    unsigned src = GetMemB(ES, wregs[DI]);
-    unsigned dest = GetMemDSB(wregs[SI]);
+    unsigned src = mem_getb(ES, wregs[DI]);
+    unsigned dest = mem_getds_b(wregs[SI]);
     CMP_8();
     wregs[DI] += 1 - 2 * DF;
     wregs[SI] += 1 - 2 * DF;
 }
 
-static void i_cmpsw(void)
+static void cpu_op_cmpsw(void)
 {
-    unsigned src = GetMemW(ES, wregs[DI]);
-    unsigned dest = GetMemDSW(wregs[SI]);
+    unsigned src = mem_getw(ES, wregs[DI]);
+    unsigned dest = mem_getds_w(wregs[SI]);
     CMP_16();
     wregs[DI] += -4 * DF + 2;
     wregs[SI] += -4 * DF + 2;
 }
 
-static void i_stosb(void)
+static void cpu_op_stosb(void)
 {
-    SetMemB(ES, wregs[DI], wregs[AX]);
+    mem_setb(ES, wregs[DI], wregs[AX]);
     wregs[DI] += 1 - 2 * DF;
 }
 
-static void i_stosw(void)
+static void cpu_op_stosw(void)
 {
-    SetMemW(ES, wregs[DI], wregs[AX]);
+    mem_setw(ES, wregs[DI], wregs[AX]);
     wregs[DI] += 2 - 4 * DF;
 }
 
-static void i_lodsb(void)
+static void cpu_op_lodsb(void)
 {
-    wregs[AX] = (wregs[AX] & 0xFF00) | GetMemDSB(wregs[SI]);
+    wregs[AX] = (wregs[AX] & 0xFF00) | mem_getds_b(wregs[SI]);
     wregs[SI] += 1 - 2 * DF;
 }
 
-static void i_lodsw(void)
+static void cpu_op_lodsw(void)
 {
-    wregs[AX] = GetMemDSW(wregs[SI]);
+    wregs[AX] = mem_getds_w(wregs[SI]);
     wregs[SI] += 2 - 4 * DF;
 }
 
-static void i_scasb(void)
+static void cpu_op_scasb(void)
 {
-    unsigned src = GetMemB(ES, wregs[DI]);
+    unsigned src = mem_getb(ES, wregs[DI]);
     unsigned dest = wregs[AX] & 0xFF;
     CMP_8();
     wregs[DI] += 1 - 2 * DF;
 }
 
-static void i_scasw(void)
+static void cpu_op_scasw(void)
 {
-    unsigned src = GetMemW(ES, wregs[DI]);
+    unsigned src = mem_getw(ES, wregs[DI]);
     unsigned dest = wregs[AX];
     CMP_16();
     wregs[DI] += 2 - 4 * DF;
 }
 
-static void i_insb(void)
+static void cpu_op_insb(void)
 {
-    SetMemB(ES, wregs[DI], read_port(wregs[DX]));
+    mem_setb(ES, wregs[DI], read_port(wregs[DX]));
     wregs[DI] += 1 - 2 * DF;
 }
 
-static void i_insw(void)
+static void cpu_op_insw(void)
 {
     uint16_t val = read_port(wregs[DX]);
     val |= read_port(wregs[DX] + 1) << 8;
-    SetMemW(ES, wregs[DI], val);
+    mem_setw(ES, wregs[DI], val);
     wregs[DI] += 2 - 4 * DF;
 }
 
-static void i_outsb(void)
+static void cpu_op_outsb(void)
 {
-    uint8_t val = (wregs[AX] & 0xFF00) | GetMemDSB(wregs[SI]);
+    uint8_t val = (wregs[AX] & 0xFF00) | mem_getds_b(wregs[SI]);
     write_port(wregs[DX], val);
     wregs[SI] += 1 - 2 * DF;
 }
 
-static void i_outsw(void)
+static void cpu_op_outsw(void)
 {
-    uint16_t val = GetMemDSW(wregs[SI]);
+    uint16_t val = mem_getds_w(wregs[SI]);
     write_port(wregs[DX], val & 0xFF);
     write_port(wregs[DX] + 1, val >> 8);
     wregs[SI] += 2 - 4 * DF;
 }
 
-static void i_ret_d16(void)
+static void cpu_op_ret_d16(void)
 {
-    uint16_t count = FETCH_W();
-    ip = PopWord();
+    uint16_t count = cpu_fetchw();
+    ip = cpu_stack_popw();
     wregs[SP] += count;
 }
 
-static void i_ret(void)
+static void cpu_op_ret(void)
 {
-    ip = PopWord();
+    ip = cpu_stack_popw();
 }
 
-static void i_les_dw(void)
+static void cpu_op_les_dw(void)
 {
     GET_r16w();
     dest = src;
@@ -1326,7 +1326,7 @@ static void i_les_dw(void)
     SET_r16w();
 }
 
-static void i_lds_dw(void)
+static void cpu_op_lds_dw(void)
 {
     GET_r16w();
     dest = src;
@@ -1334,48 +1334,48 @@ static void i_lds_dw(void)
     SET_r16w();
 }
 
-static void i_mov_bd8(void)
+static void cpu_op_mov_bd8(void)
 {
-    int ModRM = FETCH_B();
+    int ModRM = cpu_fetchb();
     if(ModRM < 0xc0)
         ModRMAddress = GetModRMAddress(ModRM);
-    uint8_t dest = FETCH_B();
+    uint8_t dest = cpu_fetchb();
     SET_br8();
 }
 
-static void i_mov_wd16(void)
+static void cpu_op_mov_wd16(void)
 {
-    int ModRM = FETCH_B();
+    int ModRM = cpu_fetchb();
     if(ModRM < 0xc0)
         ModRMAddress = GetModRMAddress(ModRM);
-    uint16_t dest = FETCH_W();
+    uint16_t dest = cpu_fetchw();
     SET_wr16();
 }
 
-static void i_retf_d16(void)
+static void cpu_op_retf_d16(void)
 {
-    uint16_t count = FETCH_W();
+    uint16_t count = cpu_fetchw();
     do_retf();
     wregs[SP] += count;
 }
 
-static void i_int3(void)
+static void cpu_op_int3(void)
 {
     interrupt(3);
 }
 
-static void i_int(void)
+static void cpu_op_int(void)
 {
-    interrupt(FETCH_B());
+    interrupt(cpu_fetchb());
 }
 
-static void i_into(void)
+static void cpu_op_into(void)
 {
     if(OF)
         interrupt(4);
 }
 
-static uint8_t shift1_b(uint8_t val, int ModRM)
+static uint8_t cpu_shift1_b(uint8_t val, int ModRM)
 {
     AF = 0;
     switch(ModRM & 0x38)
@@ -1435,7 +1435,7 @@ static uint8_t shift1_b(uint8_t val, int ModRM)
     return val;
 }
 
-static uint8_t shifts_b(uint8_t val, int ModRM, unsigned count)
+static uint8_t cpu_shifts_b(uint8_t val, int ModRM, unsigned count)
 {
 
 #ifdef CPU_SHIFT_80186
@@ -1446,7 +1446,7 @@ static uint8_t shifts_b(uint8_t val, int ModRM, unsigned count)
         return val; // No flags affected.
 
     if(count == 1)
-        return shift1_b(val, ModRM);
+        return cpu_shift1_b(val, ModRM);
 
     AF = 0;
     OF = 0;
@@ -1530,7 +1530,7 @@ static uint8_t shifts_b(uint8_t val, int ModRM, unsigned count)
     return val;
 }
 
-static uint16_t shift1_w(uint16_t val, int ModRM)
+static uint16_t cpu_shift1_w(uint16_t val, int ModRM)
 {
     AF = 0;
     switch(ModRM & 0x38)
@@ -1590,7 +1590,7 @@ static uint16_t shift1_w(uint16_t val, int ModRM)
     return val;
 }
 
-static uint16_t shifts_w(uint16_t val, int ModRM, unsigned count)
+static uint16_t cpu_shifts_w(uint16_t val, int ModRM, unsigned count)
 {
 #ifdef CPU_SHIFT_80186
     count &= 0x1F;
@@ -1600,7 +1600,7 @@ static uint16_t shifts_w(uint16_t val, int ModRM, unsigned count)
         return val; // No flags affected.
 
     if(count == 1)
-        return shift1_w(val, ModRM);
+        return cpu_shift1_w(val, ModRM);
 
     AF = 0;
     OF = 0;
@@ -1685,71 +1685,71 @@ static uint16_t shifts_w(uint16_t val, int ModRM, unsigned count)
     return val;
 }
 
-static void i_c0pre(void)
+static void cpu_op_c0pre(void)
 {
-    int ModRM = FETCH_B();
+    int ModRM = cpu_fetchb();
     uint8_t dest = GetModRMRMB(ModRM);
-    uint8_t count = FETCH_B();
+    uint8_t count = cpu_fetchb();
 
-    dest = shifts_b(dest, ModRM, count);
+    dest = cpu_shifts_b(dest, ModRM, count);
 
     SetModRMRMB(ModRM, dest);
 }
 
-static void i_c1pre(void)
+static void cpu_op_c1pre(void)
 {
-    int ModRM = FETCH_B();
-    uint16_t dest = GetModRMRMW(ModRM);
-    uint8_t count = FETCH_B();
+    int ModRM = cpu_fetchb();
+    uint16_t dest = get_modrm_rm_w(ModRM);
+    uint8_t count = cpu_fetchb();
 
-    dest = shifts_w(dest, ModRM, count);
+    dest = cpu_shifts_w(dest, ModRM, count);
 
-    SetModRMRMW(ModRM, dest);
+    set_modrm_rm_w(ModRM, dest);
 }
 
-static void i_d0pre(void)
+static void cpu_op_d0pre(void)
 {
-    int ModRM = FETCH_B();
+    int ModRM = cpu_fetchb();
     uint8_t dest = GetModRMRMB(ModRM);
 
-    dest = shift1_b(dest, ModRM);
+    dest = cpu_shift1_b(dest, ModRM);
 
     SetModRMRMB(ModRM, dest);
 }
 
-static void i_d1pre(void)
+static void cpu_op_d1pre(void)
 {
-    int ModRM = FETCH_B();
-    uint16_t dest = GetModRMRMW(ModRM);
+    int ModRM = cpu_fetchb();
+    uint16_t dest = get_modrm_rm_w(ModRM);
 
-    dest = shift1_w(dest, ModRM);
+    dest = cpu_shift1_w(dest, ModRM);
 
-    SetModRMRMW(ModRM, dest);
+    set_modrm_rm_w(ModRM, dest);
 }
 
-static void i_d2pre(void)
+static void cpu_op_d2pre(void)
 {
-    int ModRM = FETCH_B();
+    int ModRM = cpu_fetchb();
     uint8_t dest = GetModRMRMB(ModRM);
 
-    dest = shifts_b(dest, ModRM, wregs[CX] & 0xFF);
+    dest = cpu_shifts_b(dest, ModRM, wregs[CX] & 0xFF);
 
     SetModRMRMB(ModRM, dest);
 }
 
-static void i_d3pre(void)
+static void cpu_op_d3pre(void)
 {
-    int ModRM = FETCH_B();
-    uint16_t dest = GetModRMRMW(ModRM);
+    int ModRM = cpu_fetchb();
+    uint16_t dest = get_modrm_rm_w(ModRM);
 
-    dest = shifts_w(dest, ModRM, wregs[CX] & 0xFF);
+    dest = cpu_shifts_w(dest, ModRM, wregs[CX] & 0xFF);
 
-    SetModRMRMW(ModRM, dest);
+    set_modrm_rm_w(ModRM, dest);
 }
 
-static void i_aam(void)
+static void cpu_op_aam(void)
 {
-    unsigned mult = FETCH_B();
+    unsigned mult = cpu_fetchb();
 
     if(mult == 0)
         cpu_trap(0);
@@ -1764,9 +1764,9 @@ static void i_aam(void)
     }
 }
 
-static void i_aad(void)
+static void cpu_op_aad(void)
 {
-    unsigned mult = FETCH_B();
+    unsigned mult = cpu_fetchb();
 
     uint16_t ax = wregs[AX];
     ax = 0xFF & ((ax >> 8) * mult + ax);
@@ -1780,125 +1780,125 @@ static void i_aad(void)
     SetZFB(ax);
 }
 
-static void i_salc(void)
+static void cpu_op_salc(void)
 {
     wregs[AX] = (wregs[AX] & 0xFF00) | ((-CF) & 0xFF);
 }
 
-static void i_xlat(void)
+static void cpu_op_xlat(void)
 {
-    wregs[AX] = (wregs[AX] & 0xFF00) | GetMemDSB(wregs[BX] + (wregs[AX] & 0xFF));
+    wregs[AX] = (wregs[AX] & 0xFF00) | mem_getds_b(wregs[BX] + (wregs[AX] & 0xFF));
 }
 
-static void i_escape(void)
+static void cpu_op_escape(void)
 {
     /* This is FPU opcodes 0xd8, 0xd9, 0xda, 0xdb, 0xdc, 0xdd, 0xde and 0xdf */
-    GetModRMRMB(FETCH_B());
+    GetModRMRMB(cpu_fetchb());
 }
 
-static void i_loopne(void)
+static void cpu_op_loopne(void)
 {
-    int disp = (int8_t)FETCH_B();
+    int disp = (int8_t)cpu_fetchb();
     wregs[CX]--;
     if(!ZF && wregs[CX])
         ip = ip + disp;
 }
 
-static void i_loope(void)
+static void cpu_op_loope(void)
 {
-    int disp = (int8_t)FETCH_B();
+    int disp = (int8_t)cpu_fetchb();
     wregs[CX]--;
     if(ZF && wregs[CX])
         ip = ip + disp;
 }
 
-static void i_loop(void)
+static void cpu_op_loop(void)
 {
-    int disp = (int8_t)FETCH_B();
+    int disp = (int8_t)cpu_fetchb();
     wregs[CX]--;
     if(wregs[CX])
         ip = ip + disp;
 }
 
-static void i_jcxz(void)
+static void cpu_op_jcxz(void)
 {
-    int disp = (int8_t)FETCH_B();
+    int disp = (int8_t)cpu_fetchb();
     if(wregs[CX] == 0)
         ip = ip + disp;
 }
 
-static void i_inal(void)
+static void cpu_op_inal(void)
 {
-    unsigned port = FETCH_B();
+    unsigned port = cpu_fetchb();
     wregs[AX] = (wregs[AX] & 0xFF00) | read_port(port);
 }
 
-static void i_inax(void)
+static void cpu_op_inax(void)
 {
-    unsigned port = FETCH_B();
+    unsigned port = cpu_fetchb();
     wregs[AX] = read_port(port);
     wregs[AX] |= read_port(port + 1) << 8;
 }
 
-static void i_outal(void)
+static void cpu_op_outal(void)
 {
-    unsigned port = FETCH_B();
+    unsigned port = cpu_fetchb();
     write_port(port, wregs[AX] & 0xFF);
 }
 
-static void i_outax(void)
+static void cpu_op_outax(void)
 {
-    unsigned port = FETCH_B();
+    unsigned port = cpu_fetchb();
     write_port(port, wregs[AX] & 0xFF);
     write_port(port + 1, wregs[AX] >> 8);
 }
 
-static void i_call_d16(void)
+static void cpu_op_call_d16(void)
 {
-    uint16_t disp = FETCH_W();
-    PushWord(ip);
+    uint16_t disp = cpu_fetchw();
+    cpu_stack_pushw(ip);
     ip = ip + disp;
 }
 
-static void i_jmp_d16(void)
+static void cpu_op_jmp_d16(void)
 {
-    uint16_t disp = FETCH_W();
+    uint16_t disp = cpu_fetchw();
     ip = ip + disp;
 }
 
-static void i_jmp_far(void)
+static void cpu_op_jmp_far(void)
 {
-    uint16_t nip = FETCH_W();
-    uint16_t ncs = FETCH_W();
+    uint16_t nip = cpu_fetchw();
+    uint16_t ncs = cpu_fetchw();
 
     sregs[CS] = ncs;
     ip = nip;
 }
 
-static void i_jmp_d8(void)
+static void cpu_op_jmp_d8(void)
 {
-    int8_t disp = FETCH_B();
+    int8_t disp = cpu_fetchb();
     ip = ip + disp;
 }
 
-static void i_inaldx(void)
+static void cpu_op_inaldx(void)
 {
     wregs[AX] = (wregs[AX] & 0xFF00) | read_port(wregs[DX]);
 }
 
-static void i_inaxdx(void)
+static void cpu_op_inaxdx(void)
 {
     unsigned port = wregs[DX];
     wregs[AX] = read_port(port);
     wregs[AX] |= read_port(port + 1) << 8;
 }
 
-static void i_outdxal(void)
+static void cpu_op_outdxal(void)
 {
     write_port(wregs[DX], wregs[AX] & 0xFF);
 }
 
-static void i_outdxax(void)
+static void cpu_op_outdxax(void)
 {
     unsigned port = wregs[DX];
     write_port(port, wregs[AX] & 0xFF);
@@ -1906,7 +1906,7 @@ static void i_outdxax(void)
 }
 
 // Exit a REP early because we need to sleep the CPU
-static void exit_early_rep(uint16_t count)
+static void cpu_exit_early_rep(uint16_t count)
 {
     // Reset IP to start of REP sequence, reduce executed instruction count
     // and stopre CX register.
@@ -1922,7 +1922,7 @@ static void exit_early_rep(uint16_t count)
         for(; count > 0; count--)                                  \
         {                                                          \
             if(wregs[CX] != count && num_ins_exec++ >= ins_per_ms) \
-                return exit_early_rep(count);                      \
+                return cpu_exit_early_rep(count);                      \
             ins();                                                 \
         }                                                          \
     }                                                              \
@@ -1938,7 +1938,7 @@ static void exit_early_rep(uint16_t count)
         for(ZF = flagval; (ZF == flagval) && (count > 0); count--) \
         {                                                          \
             if(wregs[CX] != count && num_ins_exec++ >= ins_per_ms) \
-                return exit_early_rep(count);                      \
+                return cpu_exit_early_rep(count);                      \
             ins();                                                 \
         }                                                          \
     }                                                              \
@@ -1947,92 +1947,92 @@ static void exit_early_rep(uint16_t count)
             ins();                                                 \
     wregs[CX] = count;
 
-static void rep(int flagval)
+static void cpu_rep(int flagval)
 {
     /* Handles rep- and repnz- prefixes. flagval is the value of ZF for the
        loop  to continue for CMPS and SCAS instructions. */
-    uint8_t next = FETCH_B();
+    uint8_t next = cpu_fetchb();
     unsigned count = wregs[CX];
 
     switch(next)
     {
     case 0x26: /* ES: */
         segment_override = ES;
-        rep(flagval);
+        cpu_rep(flagval);
         segment_override = NoSeg;
         break;
     case 0x2e: /* CS: */
         segment_override = CS;
-        rep(flagval);
+        cpu_rep(flagval);
         segment_override = NoSeg;
         break;
     case 0x36: /* SS: */
         segment_override = SS;
-        rep(flagval);
+        cpu_rep(flagval);
         segment_override = NoSeg;
         break;
     case 0x3e: /* DS: */
         segment_override = DS;
-        rep(flagval);
+        cpu_rep(flagval);
         segment_override = NoSeg;
         break;
     case 0x6c: /* REP INSB */
-        REP_COUNT(i_insb);
+        REP_COUNT(cpu_op_insb);
         break;
     case 0x6d: /* REP INSW */
-        REP_COUNT(i_insw);
+        REP_COUNT(cpu_op_insw);
         break;
     case 0x6e: /* REP OUTSB */
-        REP_COUNT(i_outsb);
+        REP_COUNT(cpu_op_outsb);
         break;
     case 0x6f: /* REP OUTSW */
-        REP_COUNT(i_outsw);
+        REP_COUNT(cpu_op_outsw);
         break;
     case 0xa4: /* REP MOVSB */
-        REP_COUNT(i_movsb);
+        REP_COUNT(cpu_op_movsb);
         break;
     case 0xa5: /* REP MOVSW */
-        REP_COUNT(i_movsw);
+        REP_COUNT(cpu_op_movsw);
         break;
     case 0xa6: /* REP(N)E CMPSB */
-        REP_CONDITION(i_cmpsb);
+        REP_CONDITION(cpu_op_cmpsb);
         break;
     case 0xa7: /* REP(N)E CMPSW */
-        REP_CONDITION(i_cmpsw);
+        REP_CONDITION(cpu_op_cmpsw);
         break;
     case 0xaa: /* REP STOSB */
-        REP_COUNT(i_stosb);
+        REP_COUNT(cpu_op_stosb);
         break;
     case 0xab: /* REP LODSW */
-        REP_COUNT(i_stosw);
+        REP_COUNT(cpu_op_stosw);
         break;
     case 0xac: /* REP LODSB */
-        REP_COUNT(i_lodsb);
+        REP_COUNT(cpu_op_lodsb);
         break;
     case 0xad: /* REP LODSW */
-        REP_COUNT(i_lodsw);
+        REP_COUNT(cpu_op_lodsw);
         break;
     case 0xae: /* REP(N)E SCASB */
-        REP_CONDITION(i_scasb);
+        REP_CONDITION(cpu_op_scasb);
         break;
     case 0xaf: /* REP(N)E SCASW */
-        REP_CONDITION(i_scasw);
+        REP_CONDITION(cpu_op_scasw);
         break;
     default: /* Ignore REP */
-        do_instruction(next);
+        cpu_do_instruction(next);
     }
 }
 
-static void i_f6pre(void)
+static void cpu_op_f6pre(void)
 {
-    int ModRM = FETCH_B();
+    int ModRM = cpu_fetchb();
     uint8_t dest = GetModRMRMB(ModRM);
 
     switch(ModRM & 0x38)
     {
     case 0x00: /* TEST Eb, data8 */
     case 0x08: /* ??? */
-        dest &= FETCH_B();
+        dest &= cpu_fetchb();
         CF = OF = AF = 0;
         SetZFB(dest);
         SetSFB(dest);
@@ -2096,16 +2096,16 @@ static void i_f6pre(void)
     }
 }
 
-static void i_f7pre(void)
+static void cpu_op_f7pre(void)
 {
-    int ModRM = FETCH_B();
-    uint16_t dest = GetModRMRMW(ModRM);
+    int ModRM = cpu_fetchb();
+    uint16_t dest = get_modrm_rm_w(ModRM);
 
     switch(ModRM & 0x38)
     {
     case 0x00: /* TEST Ew, data16 */
     case 0x08: /* ??? */
-        dest &= FETCH_W();
+        dest &= cpu_fetchw();
         CF = OF = AF = 0;
         SetZFW(dest);
         SetSFW(dest);
@@ -2113,7 +2113,7 @@ static void i_f7pre(void)
         break;
 
     case 0x10: /* NOT Ew */
-        SetModRMRMW(ModRM, ~dest);
+        set_modrm_rm_w(ModRM, ~dest);
         break;
 
     case 0x18: /* NEG Ew */
@@ -2124,7 +2124,7 @@ static void i_f7pre(void)
         SetZFW(dest);
         SetSFW(dest);
         SetPF(dest);
-        SetModRMRMW(ModRM, dest);
+        set_modrm_rm_w(ModRM, dest);
         break;
     case 0x20: /* MUL AX, Ew */
     {
@@ -2181,49 +2181,49 @@ static void i_f7pre(void)
     }
 }
 
-static void i_sti(void)
+static void cpu_op_sti(void)
 {
     IF = 1;
 }
 
-static void i_pusha(void)
+static void cpu_op_pusha(void)
 {
     uint16_t tmp = wregs[SP];
-    PushWord(wregs[AX]);
-    PushWord(wregs[CX]);
-    PushWord(wregs[DX]);
-    PushWord(wregs[BX]);
-    PushWord(tmp);
-    PushWord(wregs[BP]);
-    PushWord(wregs[SI]);
-    PushWord(wregs[DI]);
+    cpu_stack_pushw(wregs[AX]);
+    cpu_stack_pushw(wregs[CX]);
+    cpu_stack_pushw(wregs[DX]);
+    cpu_stack_pushw(wregs[BX]);
+    cpu_stack_pushw(tmp);
+    cpu_stack_pushw(wregs[BP]);
+    cpu_stack_pushw(wregs[SI]);
+    cpu_stack_pushw(wregs[DI]);
 }
 
-static void i_popa(void)
+static void cpu_op_popa(void)
 {
-    wregs[DI] = PopWord();
-    wregs[SI] = PopWord();
-    wregs[BP] = PopWord();
-    PopWord();
-    wregs[BX] = PopWord();
-    wregs[DX] = PopWord();
-    wregs[CX] = PopWord();
-    wregs[AX] = PopWord();
+    wregs[DI] = cpu_stack_popw();
+    wregs[SI] = cpu_stack_popw();
+    wregs[BP] = cpu_stack_popw();
+    cpu_stack_popw();
+    wregs[BX] = cpu_stack_popw();
+    wregs[DX] = cpu_stack_popw();
+    wregs[CX] = cpu_stack_popw();
+    wregs[AX] = cpu_stack_popw();
 }
 
-static void i_bound(void)
+static void cpu_op_bound(void)
 {
-    int ModRM = FETCH_B();
-    uint16_t src = GetModRMRegW(ModRM);
-    uint16_t low = GetModRMRMW(ModRM);
+    int ModRM = cpu_fetchb();
+    uint16_t src = get_modrm_reg_w(ModRM);
+    uint16_t low = get_modrm_rm_w(ModRM);
     uint16_t hi = GetMemAbsW(ModRMAddress + 2);
     if(src < low || src > hi)
         cpu_trap(5);
 }
 
-static void i_fepre(void)
+static void cpu_op_fepre(void)
 {
-    int ModRM = FETCH_B();
+    int ModRM = cpu_fetchb();
     uint8_t dest = GetModRMRMB(ModRM);
 
     if((ModRM & 0x38) == 0)
@@ -2244,10 +2244,10 @@ static void i_fepre(void)
     SetModRMRMB(ModRM, dest);
 }
 
-static void i_ffpre(void)
+static void cpu_op_ffpre(void)
 {
-    int ModRM = FETCH_B();
-    uint16_t dest = GetModRMRMW(ModRM);
+    int ModRM = cpu_fetchb();
+    uint16_t dest = get_modrm_rm_w(ModRM);
 
     switch(ModRM & 0x38)
     {
@@ -2258,7 +2258,7 @@ static void i_ffpre(void)
         SetZFW(dest);
         SetSFW(dest);
         SetPF(dest);
-        SetModRMRMW(ModRM, dest);
+        set_modrm_rm_w(ModRM, dest);
         break;
     case 0x08: /* DEC ew */
         dest = dest - 1;
@@ -2267,15 +2267,15 @@ static void i_ffpre(void)
         SetZFW(dest);
         SetSFW(dest);
         SetPF(dest);
-        SetModRMRMW(ModRM, dest);
+        set_modrm_rm_w(ModRM, dest);
         break;
     case 0x10: /* CALL ew */
-        PushWord(ip);
+        cpu_stack_pushw(ip);
         ip = dest;
         break;
     case 0x18: /* CALL FAR ea */
-        PushWord(sregs[CS]);
-        PushWord(ip);
+        cpu_stack_pushw(sregs[CS]);
+        cpu_stack_pushw(ip);
         ip = dest;
         sregs[CS] = GetMemAbsW(ModRMAddress + 2);
         break;
@@ -2287,18 +2287,18 @@ static void i_ffpre(void)
         sregs[CS] = GetMemAbsW(ModRMAddress + 2);
         break;
     case 0x30: /* PUSH ea */
-        PushWord(dest);
+        cpu_stack_pushw(dest);
         break;
     case 0x38:
-        i_undefined();
+        cpu_op_undefined();
     }
 }
 
-static void i_enter(void)
+static void cpu_op_enter(void)
 {
-    uint16_t stk = FETCH_W();
-    uint8_t lvl = FETCH_B();
-    PushWord(wregs[BP]);         // push BP
+    uint16_t stk = cpu_fetchw();
+    uint8_t lvl = cpu_fetchb();
+    cpu_stack_pushw(wregs[BP]);         // push BP
     wregs[BP] = wregs[SP];       // BP <- SP
     wregs[SP] = wregs[SP] - stk; // SP -= stk
     if(lvl)
@@ -2306,24 +2306,24 @@ static void i_enter(void)
         unsigned i;
         unsigned tmp = wregs[BP];
         for(i = 1; i < lvl; i++)
-            PushWord(GetMemW(SS, (tmp - i * 2))); // push SS:[BP - 2*i]
-        PushWord(tmp);                            // push BP
+            cpu_stack_pushw(mem_getw(SS, (tmp - i * 2))); // push SS:[BP - 2*i]
+        cpu_stack_pushw(tmp);                            // push BP
     }
 }
 
-static void i_leave(void)
+static void cpu_op_leave(void)
 {
     wregs[SP] = wregs[BP]; // SP <- BP
-    wregs[BP] = PopWord();
+    wregs[BP] = cpu_stack_popw();
 }
 
-NORETURN static void i_halt(void)
+NORETURN static void cpu_op_halt(void)
 {
     printf("HALT instruction!\n");
     exit(0);
 }
 
-static void debug_instruction(void)
+static void cpu_debug_instruction(void)
 {
     unsigned nip = (cpuGetIP() + 0xFFFF) & 0xFFFF; // subtract 1!
     const uint8_t *ip = memory + sregs[CS] * 16 + nip;
@@ -2338,10 +2338,10 @@ static void debug_instruction(void)
     debug(debug_cpu, "%04X:%04X %s\n", sregs[CS], nip, disa(ip, nip, segment_override));
 }
 
-static void do_instruction(uint8_t code)
+static void cpu_do_instruction(uint8_t code)
 {
     if(debug_active(debug_cpu) && segment_override == NoSeg)
-        debug_instruction();
+        cpu_debug_instruction();
     switch(code)
     {
     case 0x00: OP_br8(ADD);
@@ -2350,32 +2350,32 @@ static void do_instruction(uint8_t code)
     case 0x03: OP_r16w(ADD);
     case 0x04: OP_ald8(ADD);
     case 0x05: OP_axd16(ADD);
-    case 0x06: PushWord(sregs[ES]);                            break;
-    case 0x07: sregs[ES] = PopWord();                          break;
+    case 0x06: cpu_stack_pushw(sregs[ES]);                            break;
+    case 0x07: sregs[ES] = cpu_stack_popw();                          break;
     case 0x08: OP_br8(OR);
     case 0x09: OP_wr16(OR);
     case 0x0A: OP_r8b(OR);
     case 0x0B: OP_r16w(OR);
     case 0x0C: OP_ald8(OR);
     case 0x0D: OP_axd16(OR);
-    case 0x0e: PushWord(sregs[CS]);                            break;
-    case 0x0f: i_undefined();                                  break;
+    case 0x0e: cpu_stack_pushw(sregs[CS]);                            break;
+    case 0x0f: cpu_op_undefined();                                  break;
     case 0x10: OP_br8(ADC);
     case 0x11: OP_wr16(ADC);
     case 0x12: OP_r8b(ADC);
     case 0x13: OP_r16w(ADC);
     case 0x14: OP_ald8(ADC);
     case 0x15: OP_axd16(ADC);
-    case 0x16: PushWord(sregs[SS]);                            break;
-    case 0x17: sregs[SS] = PopWord();                          break;
+    case 0x16: cpu_stack_pushw(sregs[SS]);                            break;
+    case 0x17: sregs[SS] = cpu_stack_popw();                          break;
     case 0x18: OP_br8(SBB);
     case 0x19: OP_wr16(SBB);
     case 0x1A: OP_r8b(SBB);
     case 0x1B: OP_r16w(SBB);
     case 0x1C: OP_ald8(SBB);
     case 0x1D: OP_axd16(SBB);
-    case 0x1e: PushWord(sregs[DS]);                            break;
-    case 0x1f: sregs[DS] = PopWord();                          break;
+    case 0x1e: cpu_stack_pushw(sregs[DS]);                            break;
+    case 0x1f: sregs[DS] = cpu_stack_popw();                          break;
     case 0x20: OP_br8(AND);
     case 0x21: OP_wr16(AND);
     case 0x22: OP_r8b(AND);
@@ -2383,7 +2383,7 @@ static void do_instruction(uint8_t code)
     case 0x24: OP_ald8(AND);
     case 0x25: OP_axd16(AND);
     case 0x26: SEG_OVERRIDE(ES);
-    case 0x27: i_daa();                                        break;
+    case 0x27: cpu_op_daa();                                        break;
     case 0x28: OP_br8(SUB);
     case 0x29: OP_wr16(SUB);
     case 0x2A: OP_r8b(SUB);
@@ -2391,7 +2391,7 @@ static void do_instruction(uint8_t code)
     case 0x2C: OP_ald8(SUB);
     case 0x2D: OP_axd16(SUB);
     case 0x2E: SEG_OVERRIDE(CS);
-    case 0x2f: i_das();                                        break;
+    case 0x2f: cpu_op_das();                                        break;
     case 0x30: OP_br8(XOR);
     case 0x31: OP_wr16(XOR);
     case 0x32: OP_r8b(XOR);
@@ -2399,7 +2399,7 @@ static void do_instruction(uint8_t code)
     case 0x34: OP_ald8(XOR);
     case 0x35: OP_axd16(XOR);
     case 0x36: SEG_OVERRIDE(SS);
-    case 0x37: i_aaa();                                        break;
+    case 0x37: cpu_op_aaa();                                        break;
     case 0x38: OP_br8(CMP);
     case 0x39: OP_wr16(CMP);
     case 0x3A: OP_r8b(CMP);
@@ -2407,7 +2407,7 @@ static void do_instruction(uint8_t code)
     case 0x3C: OP_ald8(CMP);
     case 0x3D: OP_axd16(CMP);
     case 0x3E: SEG_OVERRIDE(DS);
-    case 0x3f: i_aas();                                        break;
+    case 0x3f: cpu_op_aas();                                        break;
     case 0x40: INC_WR(AX);
     case 0x41: INC_WR(CX);
     case 0x42: INC_WR(DX);
@@ -2440,54 +2440,54 @@ static void do_instruction(uint8_t code)
     case 0x5d: POP_WR(BP);
     case 0x5e: POP_WR(SI);
     case 0x5f: POP_WR(DI);
-    case 0x60: i_pusha();                                      break; /* 186 */
-    case 0x61: i_popa();                                       break; /* 186 */
-    case 0x62: i_bound();                                      break; /* 186 */
-    case 0x63: i_undefined();                                  break;
-    case 0x64: i_undefined();                                  break;
-    case 0x65: i_undefined();                                  break;
-    case 0x66: i_undefined();                                  break;
-    case 0x67: i_undefined();                                  break;
-    case 0x68: PushWord(FETCH_W());                            break; /* 186 */
-    case 0x69: i_imul_r16w_d16();                              break; /* 186 */
-    case 0x6a: PushWord((int8_t)FETCH_B());                    break; /* 186 */
-    case 0x6b: i_imul_r16w_d8();                               break; /* 186 */
-    case 0x6c: i_insb();                                       break; /* 186 */
-    case 0x6d: i_insw();                                       break; /* 186 */
-    case 0x6e: i_outsb();                                      break; /* 186 */
-    case 0x6f: i_outsw();                                      break; /* 186 */
-    case 0x70: do_cjump(OF);                                   break;
-    case 0x71: do_cjump(!OF);                                  break;
-    case 0x72: do_cjump(CF);                                   break;
-    case 0x73: do_cjump(!CF);                                  break;
-    case 0x74: do_cjump(ZF);                                   break;
-    case 0x75: do_cjump(!ZF);                                  break;
-    case 0x76: do_cjump(CF || ZF);                             break;
-    case 0x77: do_cjump(!CF && !ZF);                           break;
-    case 0x78: do_cjump(SF);                                   break;
-    case 0x79: do_cjump(!SF);                                  break;
-    case 0x7a: do_cjump(PF);                                   break;
-    case 0x7b: do_cjump(!PF);                                  break;
-    case 0x7c: do_cjump((!SF != !OF) && !ZF);                  break;
-    case 0x7d: do_cjump((!SF == !OF) || ZF);                   break;
-    case 0x7e: do_cjump((!SF != !OF) || ZF);                   break;
-    case 0x7f: do_cjump((!SF == !OF) && !ZF);                  break;
-    case 0x80: i_80pre();                                      break;
-    case 0x81: i_81pre();                                      break;
-    case 0x82: i_82pre();                                      break;
-    case 0x83: i_83pre();                                      break;
+    case 0x60: cpu_op_pusha();                                      break; /* 186 */
+    case 0x61: cpu_op_popa();                                       break; /* 186 */
+    case 0x62: cpu_op_bound();                                      break; /* 186 */
+    case 0x63: cpu_op_undefined();                                  break;
+    case 0x64: cpu_op_undefined();                                  break;
+    case 0x65: cpu_op_undefined();                                  break;
+    case 0x66: cpu_op_undefined();                                  break;
+    case 0x67: cpu_op_undefined();                                  break;
+    case 0x68: cpu_stack_pushw(cpu_fetchw());                            break; /* 186 */
+    case 0x69: cpu_op_imul_r16w_d16();                              break; /* 186 */
+    case 0x6a: cpu_stack_pushw((int8_t)cpu_fetchb());                    break; /* 186 */
+    case 0x6b: cpu_op_imul_r16w_d8();                               break; /* 186 */
+    case 0x6c: cpu_op_insb();                                       break; /* 186 */
+    case 0x6d: cpu_op_insw();                                       break; /* 186 */
+    case 0x6e: cpu_op_outsb();                                      break; /* 186 */
+    case 0x6f: cpu_op_outsw();                                      break; /* 186 */
+    case 0x70: cpu_do_cond_jump(OF);                                   break;
+    case 0x71: cpu_do_cond_jump(!OF);                                  break;
+    case 0x72: cpu_do_cond_jump(CF);                                   break;
+    case 0x73: cpu_do_cond_jump(!CF);                                  break;
+    case 0x74: cpu_do_cond_jump(ZF);                                   break;
+    case 0x75: cpu_do_cond_jump(!ZF);                                  break;
+    case 0x76: cpu_do_cond_jump(CF || ZF);                             break;
+    case 0x77: cpu_do_cond_jump(!CF && !ZF);                           break;
+    case 0x78: cpu_do_cond_jump(SF);                                   break;
+    case 0x79: cpu_do_cond_jump(!SF);                                  break;
+    case 0x7a: cpu_do_cond_jump(PF);                                   break;
+    case 0x7b: cpu_do_cond_jump(!PF);                                  break;
+    case 0x7c: cpu_do_cond_jump((!SF != !OF) && !ZF);                  break;
+    case 0x7d: cpu_do_cond_jump((!SF == !OF) || ZF);                   break;
+    case 0x7e: cpu_do_cond_jump((!SF != !OF) || ZF);                   break;
+    case 0x7f: cpu_do_cond_jump((!SF == !OF) && !ZF);                  break;
+    case 0x80: cpu_op_80pre();                                      break;
+    case 0x81: cpu_op_81pre();                                      break;
+    case 0x82: cpu_op_82pre();                                      break;
+    case 0x83: cpu_op_83pre();                                      break;
     case 0x84: OP_br8(TEST);
     case 0x85: OP_wr16(TEST);
-    case 0x86: i_xchg_br8();                                   break;
-    case 0x87: i_xchg_wr16();                                  break;
+    case 0x86: cpu_op_xchg_br8();                                   break;
+    case 0x87: cpu_op_xchg_wr16();                                  break;
     case 0x88: OP_br8(MOV);
     case 0x89: OP_wr16(MOV);
     case 0x8a: OP_r8b(MOV);
     case 0x8b: OP_r16w(MOV);
-    case 0x8c: i_mov_wsreg();                                  break;
-    case 0x8d: i_lea();                                        break;
-    case 0x8e: i_mov_sregw();                                  break;
-    case 0x8f: i_popw();                                       break;
+    case 0x8c: cpu_op_mov_wsreg();                                  break;
+    case 0x8d: cpu_op_lea();                                        break;
+    case 0x8e: cpu_op_mov_sregw();                                  break;
+    case 0x8f: cpu_op_popw();                                       break;
     case 0x90: /* NOP */                                       break;
     case 0x91: XCHG_AX_WR(CX);
     case 0x92: XCHG_AX_WR(DX);
@@ -2498,28 +2498,28 @@ static void do_instruction(uint8_t code)
     case 0x97: XCHG_AX_WR(DI);
     case 0x98: wregs[AX] = (int8_t)(0xFF & wregs[AX]);         break;
     case 0x99: wregs[DX] = (wregs[AX] & 0x8000) ? 0xffff : 0;  break;
-    case 0x9a: i_call_far();                                   break;
+    case 0x9a: cpu_op_call_far();                                   break;
     case 0x9b: /* WAIT */                                      break;
-    case 0x9c: PushWord(CompressFlags());                      break;
-    case 0x9d: do_popf();                                      break;
-    case 0x9e: i_sahf();                                       break;
-    case 0x9f: i_lahf();                                       break;
-    case 0xa0: i_mov_aldisp();                                 break;
-    case 0xa1: i_mov_axdisp();                                 break;
-    case 0xa2: i_mov_dispal();                                 break;
-    case 0xa3: i_mov_dispax();                                 break;
-    case 0xa4: i_movsb();                                      break;
-    case 0xa5: i_movsw();                                      break;
-    case 0xa6: i_cmpsb();                                      break;
-    case 0xa7: i_cmpsw();                                      break;
+    case 0x9c: cpu_stack_pushw(CompressFlags());                      break;
+    case 0x9d: cpu_do_popf();                                      break;
+    case 0x9e: cpu_op_sahf();                                       break;
+    case 0x9f: cpu_op_lahf();                                       break;
+    case 0xa0: cpu_op_mov_aldisp();                                 break;
+    case 0xa1: cpu_op_mov_axdisp();                                 break;
+    case 0xa2: cpu_op_mov_dispal();                                 break;
+    case 0xa3: cpu_op_mov_dispax();                                 break;
+    case 0xa4: cpu_op_movsb();                                      break;
+    case 0xa5: cpu_op_movsw();                                      break;
+    case 0xa6: cpu_op_cmpsb();                                      break;
+    case 0xa7: cpu_op_cmpsw();                                      break;
     case 0xa8: OP_ald8(TEST);
     case 0xa9: OP_axd16(TEST);
-    case 0xaa: i_stosb();                                      break;
-    case 0xab: i_stosw();                                      break;
-    case 0xac: i_lodsb();                                      break;
-    case 0xad: i_lodsw();                                      break;
-    case 0xae: i_scasb();                                      break;
-    case 0xaf: i_scasw();                                      break;
+    case 0xaa: cpu_op_stosb();                                      break;
+    case 0xab: cpu_op_stosw();                                      break;
+    case 0xac: cpu_op_lodsb();                                      break;
+    case 0xad: cpu_op_lodsw();                                      break;
+    case 0xae: cpu_op_scasb();                                      break;
+    case 0xaf: cpu_op_scasw();                                      break;
     case 0xb0: MOV_BRL(AX);
     case 0xb1: MOV_BRL(CX);
     case 0xb2: MOV_BRL(DX);
@@ -2536,70 +2536,70 @@ static void do_instruction(uint8_t code)
     case 0xbd: MOV_WRi(BP);
     case 0xbe: MOV_WRi(SI);
     case 0xbf: MOV_WRi(DI);
-    case 0xc0: i_c0pre();                                      break; /* 186 */
-    case 0xc1: i_c1pre();                                      break; /* 186 */
-    case 0xc2: i_ret_d16();                                    break;
-    case 0xc3: i_ret();                                        break;
-    case 0xc4: i_les_dw();                                     break;
-    case 0xc5: i_lds_dw();                                     break;
-    case 0xc6: i_mov_bd8();                                    break;
-    case 0xc7: i_mov_wd16();                                   break;
-    case 0xc8: i_enter();                                      break;
-    case 0xc9: i_leave();                                      break;
-    case 0xca: i_retf_d16();                                   break;
+    case 0xc0: cpu_op_c0pre();                                      break; /* 186 */
+    case 0xc1: cpu_op_c1pre();                                      break; /* 186 */
+    case 0xc2: cpu_op_ret_d16();                                    break;
+    case 0xc3: cpu_op_ret();                                        break;
+    case 0xc4: cpu_op_les_dw();                                     break;
+    case 0xc5: cpu_op_lds_dw();                                     break;
+    case 0xc6: cpu_op_mov_bd8();                                    break;
+    case 0xc7: cpu_op_mov_wd16();                                   break;
+    case 0xc8: cpu_op_enter();                                      break;
+    case 0xc9: cpu_op_leave();                                      break;
+    case 0xca: cpu_op_retf_d16();                                   break;
     case 0xcb: do_retf();                                      break;
-    case 0xcc: i_int3();                                       break;
-    case 0xcd: i_int();                                        break;
-    case 0xce: i_into();                                       break;
+    case 0xcc: cpu_op_int3();                                       break;
+    case 0xcd: cpu_op_int();                                        break;
+    case 0xce: cpu_op_into();                                       break;
     case 0xcf: do_iret();                                      break;
-    case 0xd0: i_d0pre();                                      break;
-    case 0xd1: i_d1pre();                                      break;
-    case 0xd2: i_d2pre();                                      break;
-    case 0xd3: i_d3pre();                                      break;
-    case 0xd4: i_aam();                                        break;
-    case 0xd5: i_aad();                                        break;
-    case 0xd6: i_salc();                                       break;
-    case 0xd7: i_xlat();                                       break;
-    case 0xd8: i_escape();                                     break;
-    case 0xd9: i_escape();                                     break;
-    case 0xda: i_escape();                                     break;
-    case 0xdb: i_escape();                                     break;
-    case 0xdc: i_escape();                                     break;
-    case 0xdd: i_escape();                                     break;
-    case 0xde: i_escape();                                     break;
-    case 0xdf: i_escape();                                     break;
-    case 0xe0: i_loopne();                                     break;
-    case 0xe1: i_loope();                                      break;
-    case 0xe2: i_loop();                                       break;
-    case 0xe3: i_jcxz();                                       break;
-    case 0xe4: i_inal();                                       break;
-    case 0xe5: i_inax();                                       break;
-    case 0xe6: i_outal();                                      break;
-    case 0xe7: i_outax();                                      break;
-    case 0xe8: i_call_d16();                                   break;
-    case 0xe9: i_jmp_d16();                                    break;
-    case 0xea: i_jmp_far();                                    break;
-    case 0xeb: i_jmp_d8();                                     break;
-    case 0xec: i_inaldx();                                     break;
-    case 0xed: i_inaxdx();                                     break;
-    case 0xee: i_outdxal();                                    break;
-    case 0xef: i_outdxax();                                    break;
+    case 0xd0: cpu_op_d0pre();                                      break;
+    case 0xd1: cpu_op_d1pre();                                      break;
+    case 0xd2: cpu_op_d2pre();                                      break;
+    case 0xd3: cpu_op_d3pre();                                      break;
+    case 0xd4: cpu_op_aam();                                        break;
+    case 0xd5: cpu_op_aad();                                        break;
+    case 0xd6: cpu_op_salc();                                       break;
+    case 0xd7: cpu_op_xlat();                                       break;
+    case 0xd8: cpu_op_escape();                                     break;
+    case 0xd9: cpu_op_escape();                                     break;
+    case 0xda: cpu_op_escape();                                     break;
+    case 0xdb: cpu_op_escape();                                     break;
+    case 0xdc: cpu_op_escape();                                     break;
+    case 0xdd: cpu_op_escape();                                     break;
+    case 0xde: cpu_op_escape();                                     break;
+    case 0xdf: cpu_op_escape();                                     break;
+    case 0xe0: cpu_op_loopne();                                     break;
+    case 0xe1: cpu_op_loope();                                      break;
+    case 0xe2: cpu_op_loop();                                       break;
+    case 0xe3: cpu_op_jcxz();                                       break;
+    case 0xe4: cpu_op_inal();                                       break;
+    case 0xe5: cpu_op_inax();                                       break;
+    case 0xe6: cpu_op_outal();                                      break;
+    case 0xe7: cpu_op_outax();                                      break;
+    case 0xe8: cpu_op_call_d16();                                   break;
+    case 0xe9: cpu_op_jmp_d16();                                    break;
+    case 0xea: cpu_op_jmp_far();                                    break;
+    case 0xeb: cpu_op_jmp_d8();                                     break;
+    case 0xec: cpu_op_inaldx();                                     break;
+    case 0xed: cpu_op_inaxdx();                                     break;
+    case 0xee: cpu_op_outdxal();                                    break;
+    case 0xef: cpu_op_outdxax();                                    break;
     case 0xf0: /* LOCK */                                      break;
-    case 0xf1: i_undefined();                                  break;
-    case 0xf2: rep(0);                                         break;
-    case 0xf3: rep(1);                                         break;
-    case 0xf4: i_halt();
+    case 0xf1: cpu_op_undefined();                                  break;
+    case 0xf2: cpu_rep(0);                                         break;
+    case 0xf3: cpu_rep(1);                                         break;
+    case 0xf4: cpu_op_halt();
     case 0xf5: CF = !CF;                                       break;
-    case 0xf6: i_f6pre();                                      break;
-    case 0xf7: i_f7pre();                                      break;
+    case 0xf6: cpu_op_f6pre();                                      break;
+    case 0xf7: cpu_op_f7pre();                                      break;
     case 0xf8: CF = 0;                                         break;
     case 0xf9: CF = 1;                                         break;
     case 0xfa: IF = 0;                                         break;
-    case 0xfb: i_sti();                                        break;
+    case 0xfb: cpu_op_sti();                                        break;
     case 0xfc: DF = 0;                                         break;
     case 0xfd: DF = 1;                                         break;
-    case 0xfe: i_fepre();                                      break;
-    case 0xff: i_ffpre();                                      break;
+    case 0xfe: cpu_op_fepre();                                      break;
+    case 0xff: cpu_op_ffpre();                                      break;
     };
 }
 
@@ -2679,7 +2679,7 @@ unsigned cpuGetDS(void) { return sregs[DS]; }
 unsigned cpuGetIP(void) { return ip; }
 
 // Address of flags in stack when in interrupt handler
-static uint8_t *flagAddr(void)
+static uint8_t *cpu_get_stack_flag_addr(void)
 {
     return memory + (0xFFFFF & (4 + cpuGetSS() * 16 + cpuGetSP()));
 }
@@ -2687,7 +2687,7 @@ static uint8_t *flagAddr(void)
 // Set flags in the stack
 void cpuSetFlag(enum cpuFlags flag)
 {
-    uint8_t *f = flagAddr();
+    uint8_t *f = cpu_get_stack_flag_addr();
     f[0] |= flag;
     f[1] |= (flag >> 8);
 }
@@ -2695,7 +2695,7 @@ void cpuSetFlag(enum cpuFlags flag)
 // Get flags in the stack
 void cpuClrFlag(enum cpuFlags flag)
 {
-    uint8_t *f = flagAddr();
+    uint8_t *f = cpu_get_stack_flag_addr();
     f[0] &= ~flag;
     f[1] &= ((~flag) >> 8);
 }
@@ -2727,7 +2727,7 @@ int cpuGetAddrES(uint16_t offset)
 
 uint16_t cpuGetStack(uint16_t disp)
 {
-    return GetMemW(SS, wregs[SP] + disp);
+    return mem_getw(SS, wregs[SP] + disp);
 }
 
 void cpuTriggerIRQ(int num)
