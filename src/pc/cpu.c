@@ -204,14 +204,14 @@ static uint16_t cpu_fetchw(void)
 #define GET_br8()                                                              \
     int ModRM = cpu_fetchb();                                                     \
     uint8_t src = cpu_getmodrm_reg_b(ModRM);                                         \
-    uint8_t dest = GetModRMRMB(ModRM)
+    uint8_t dest = cpu_getmodrm_rm_b(ModRM)
 
 #define SET_br8() SetModRMRMB(ModRM, dest)
 
 #define GET_r8b()                                                              \
     int ModRM = cpu_fetchb();                                                     \
     uint8_t dest = cpu_getmodrm_reg_b(ModRM);                                        \
-    uint8_t src = GetModRMRMB(ModRM)
+    uint8_t src = cpu_getmodrm_rm_b(ModRM)
 
 #define SET_r8b() cpu_setmodrm_reg_b(ModRM, dest)
 
@@ -229,15 +229,15 @@ static uint16_t cpu_fetchw(void)
 
 #define GET_wr16()                                                             \
     int ModRM = cpu_fetchb();                                                     \
-    uint16_t src = get_modrm_reg_w(ModRM);                                        \
-    uint16_t dest = get_modrm_rm_w(ModRM)
+    uint16_t src = cpu_getmodrm_reg_w(ModRM);                                        \
+    uint16_t dest = cpu_getmodrm_rm_w(ModRM)
 
 #define SET_wr16() set_modrm_rm_w(ModRM, dest)
 
 #define GET_r16w()                                                             \
     int ModRM = cpu_fetchb();                                                     \
-    uint16_t dest = get_modrm_reg_w(ModRM);                                       \
-    uint16_t src = get_modrm_rm_w(ModRM)
+    uint16_t dest = cpu_getmodrm_reg_w(ModRM);                                       \
+    uint16_t src = cpu_getmodrm_rm_w(ModRM)
 
 #define SET_r16w() cpu_setmodrm_reg_w(ModRM, dest)
 
@@ -373,7 +373,7 @@ static uint32_t GetModRMAddress(unsigned ModRM)
 }
 
 static uint32_t ModRMAddress;
-static uint16_t get_modrm_rm_w(unsigned ModRM)
+static uint16_t cpu_getmodrm_rm_w(unsigned ModRM)
 {
     if(ModRM >= 0xc0)
         return wregs[ModRM & 7];
@@ -381,7 +381,7 @@ static uint16_t get_modrm_rm_w(unsigned ModRM)
     return GetMemAbsW(ModRMAddress);
 }
 
-static uint8_t GetModRMRMB(unsigned ModRM)
+static uint8_t cpu_getmodrm_rm_b(unsigned ModRM)
 {
     if(ModRM >= 0xc0)
     {
@@ -875,7 +875,7 @@ static void cpu_do_cond_jump(unsigned cond)
 static void cpu_op_80pre(void)
 {
     int ModRM = cpu_fetchb();
-    uint8_t dest = GetModRMRMB(ModRM);
+    uint8_t dest = cpu_getmodrm_rm_b(ModRM);
     uint8_t src = cpu_fetchb();
 
     switch(ModRM & 0x38)
@@ -933,7 +933,7 @@ static void cpu_op_80pre(void)
 static void cpu_op_81pre(void)
 {
     int ModRM = cpu_fetchb();
-    uint16_t dest = get_modrm_rm_w(ModRM);
+    uint16_t dest = cpu_getmodrm_rm_w(ModRM);
     uint16_t src = cpu_fetchw();
 
     switch(ModRM & 0x38)
@@ -991,7 +991,7 @@ static void cpu_op_81pre(void)
 static void cpu_op_82pre(void)
 {
     int ModRM = cpu_fetchb();
-    uint8_t dest = GetModRMRMB(ModRM);
+    uint8_t dest = cpu_getmodrm_rm_b(ModRM);
     uint8_t src = (int8_t)cpu_fetchb();
 
     switch(ModRM & 0x38)
@@ -1049,7 +1049,7 @@ static void cpu_op_82pre(void)
 static void cpu_op_83pre(void)
 {
     int ModRM = cpu_fetchb();
-    uint16_t dest = get_modrm_rm_w(ModRM);
+    uint16_t dest = cpu_getmodrm_rm_w(ModRM);
     uint16_t src = (int8_t)cpu_fetchb();
 
     switch(ModRM & 0x38)
@@ -1125,14 +1125,14 @@ static void cpu_op_xchg_wr16(void)
 static void cpu_op_mov_wsreg(void)
 {
     int ModRM = cpu_fetchb();
-    get_modrm_rm_w(ModRM);
+    cpu_getmodrm_rm_w(ModRM);
     set_modrm_rm_w(ModRM, sregs[(ModRM & 0x18) >> 3]);
 }
 
 static void cpu_op_mov_sregw(void)
 {
     int ModRM = cpu_fetchb();
-    sregs[(ModRM & 0x18) >> 3] = get_modrm_rm_w(ModRM);
+    sregs[(ModRM & 0x18) >> 3] = cpu_getmodrm_rm_w(ModRM);
 }
 
 static void cpu_op_lea(void)
@@ -1688,7 +1688,7 @@ static uint16_t cpu_shifts_w(uint16_t val, int ModRM, unsigned count)
 static void cpu_op_c0pre(void)
 {
     int ModRM = cpu_fetchb();
-    uint8_t dest = GetModRMRMB(ModRM);
+    uint8_t dest = cpu_getmodrm_rm_b(ModRM);
     uint8_t count = cpu_fetchb();
 
     dest = cpu_shifts_b(dest, ModRM, count);
@@ -1699,7 +1699,7 @@ static void cpu_op_c0pre(void)
 static void cpu_op_c1pre(void)
 {
     int ModRM = cpu_fetchb();
-    uint16_t dest = get_modrm_rm_w(ModRM);
+    uint16_t dest = cpu_getmodrm_rm_w(ModRM);
     uint8_t count = cpu_fetchb();
 
     dest = cpu_shifts_w(dest, ModRM, count);
@@ -1710,7 +1710,7 @@ static void cpu_op_c1pre(void)
 static void cpu_op_d0pre(void)
 {
     int ModRM = cpu_fetchb();
-    uint8_t dest = GetModRMRMB(ModRM);
+    uint8_t dest = cpu_getmodrm_rm_b(ModRM);
 
     dest = cpu_shift1_b(dest, ModRM);
 
@@ -1720,7 +1720,7 @@ static void cpu_op_d0pre(void)
 static void cpu_op_d1pre(void)
 {
     int ModRM = cpu_fetchb();
-    uint16_t dest = get_modrm_rm_w(ModRM);
+    uint16_t dest = cpu_getmodrm_rm_w(ModRM);
 
     dest = cpu_shift1_w(dest, ModRM);
 
@@ -1730,7 +1730,7 @@ static void cpu_op_d1pre(void)
 static void cpu_op_d2pre(void)
 {
     int ModRM = cpu_fetchb();
-    uint8_t dest = GetModRMRMB(ModRM);
+    uint8_t dest = cpu_getmodrm_rm_b(ModRM);
 
     dest = cpu_shifts_b(dest, ModRM, wregs[CX] & 0xFF);
 
@@ -1740,7 +1740,7 @@ static void cpu_op_d2pre(void)
 static void cpu_op_d3pre(void)
 {
     int ModRM = cpu_fetchb();
-    uint16_t dest = get_modrm_rm_w(ModRM);
+    uint16_t dest = cpu_getmodrm_rm_w(ModRM);
 
     dest = cpu_shifts_w(dest, ModRM, wregs[CX] & 0xFF);
 
@@ -1793,7 +1793,7 @@ static void cpu_op_xlat(void)
 static void cpu_op_escape(void)
 {
     /* This is FPU opcodes 0xd8, 0xd9, 0xda, 0xdb, 0xdc, 0xdd, 0xde and 0xdf */
-    GetModRMRMB(cpu_fetchb());
+    cpu_getmodrm_rm_b(cpu_fetchb());
 }
 
 static void cpu_op_loopne(void)
@@ -2026,7 +2026,7 @@ static void cpu_rep(int flagval)
 static void cpu_op_f6pre(void)
 {
     int ModRM = cpu_fetchb();
-    uint8_t dest = GetModRMRMB(ModRM);
+    uint8_t dest = cpu_getmodrm_rm_b(ModRM);
 
     switch(ModRM & 0x38)
     {
@@ -2099,7 +2099,7 @@ static void cpu_op_f6pre(void)
 static void cpu_op_f7pre(void)
 {
     int ModRM = cpu_fetchb();
-    uint16_t dest = get_modrm_rm_w(ModRM);
+    uint16_t dest = cpu_getmodrm_rm_w(ModRM);
 
     switch(ModRM & 0x38)
     {
@@ -2215,7 +2215,7 @@ static void cpu_op_bound(void)
 {
     int ModRM = cpu_fetchb();
     uint16_t src = get_modrm_reg_w(ModRM);
-    uint16_t low = get_modrm_rm_w(ModRM);
+    uint16_t low = cpu_getmodrm_rm_w(ModRM);
     uint16_t hi = GetMemAbsW(ModRMAddress + 2);
     if(src < low || src > hi)
         cpu_trap(5);
@@ -2224,7 +2224,7 @@ static void cpu_op_bound(void)
 static void cpu_op_fepre(void)
 {
     int ModRM = cpu_fetchb();
-    uint8_t dest = GetModRMRMB(ModRM);
+    uint8_t dest = cpu_getmodrm_rm_b(ModRM);
 
     if((ModRM & 0x38) == 0)
     {
@@ -2247,7 +2247,7 @@ static void cpu_op_fepre(void)
 static void cpu_op_ffpre(void)
 {
     int ModRM = cpu_fetchb();
-    uint16_t dest = get_modrm_rm_w(ModRM);
+    uint16_t dest = cpu_getmodrm_rm_w(ModRM);
 
     switch(ModRM & 0x38)
     {
