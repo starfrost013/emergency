@@ -156,7 +156,7 @@ static void set_text_mode(int mode, int clear)
 {
     debug(debug_video, "set text mode %d%s\n", mode, clear ? " and clear" : "");
     // Clear video screen
-    if(clear)
+    if(clear)   
     {
         uint16_t *vm = (uint16_t *)(memory + 0xB8000);
         for(int i = 0; i < 16384; i++)

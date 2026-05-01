@@ -304,7 +304,7 @@ static void cpu_setmodrm_reg_b(unsigned ModRM, uint8_t val)
         wregs[reg] = (wregs[reg] & 0xFF00) | val;
 }
 
-#define get_modrm_reg_w(ModRM) (wregs[(ModRM & 0x38) >> 3])
+#define cpu_getmodrm_reg_w(ModRM) (wregs[(ModRM & 0x38) >> 3])
 #define cpu_setmodrm_reg_w(ModRM, val) wregs[(ModRM & 0x38) >> 3] = val;
 
 // Used on LEA instruction
@@ -2218,7 +2218,7 @@ static void cpu_op_popa(void)
 static void cpu_op_bound(void)
 {
     int ModRM = cpu_fetchb();
-    uint16_t src = get_modrm_reg_w(ModRM);
+    uint16_t src = cpu_getmodrm_reg_w(ModRM);
     uint16_t low = cpu_getmodrm_rm_w(ModRM);
     uint16_t hi = mem_get_abs_w(ModRMAddress + 2);
     if(src < low || src > hi)
