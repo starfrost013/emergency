@@ -48,7 +48,7 @@ static uint8_t GetMemAbsB(uint32_t addr)
     return memory[addr & 0xFFFFF];
 }
 
-static uint16_t GetMemAbsW(uint32_t addr)
+static uint16_t mem_get_abs_w(uint32_t addr)
 {
     return memory[addr & 0xFFFFF] + 256 * memory[(addr + 1) & 0xFFFFF];
 }
@@ -81,7 +81,7 @@ static void mem_setw(uint16_t seg, uint16_t off, uint16_t val)
 
 static uint16_t mem_getw(uint16_t seg, uint16_t off)
 {
-    return GetMemAbsW(sregs[seg] * 16 + off);
+    return mem_get_abs_w(sregs[seg] * 16 + off);
 }
 
 // Read memory via DS, with possible segment override.
@@ -206,7 +206,7 @@ static uint16_t cpu_fetchw(void)
     uint8_t src = cpu_getmodrm_reg_b(ModRM);                                         \
     uint8_t dest = cpu_getmodrm_rm_b(ModRM)
 
-#define SET_br8() SetModRMRMB(ModRM, dest)
+#define SET_br8() cpu_set_modrm_rm_b(ModRM, dest)
 
 #define GET_r8b()                                                              \
     int ModRM = cpu_fetchb();                                                     \
@@ -232,7 +232,7 @@ static uint16_t cpu_fetchw(void)
     uint16_t src = cpu_getmodrm_reg_w(ModRM);                                        \
     uint16_t dest = cpu_getmodrm_rm_w(ModRM)
 
-#define SET_wr16() set_modrm_rm_w(ModRM, dest)
+#define SET_wr16() cpu_setmodrm_rm_w(ModRM, dest)
 
 #define GET_r16w()                                                             \
     int ModRM = cpu_fetchb();                                                     \
@@ -336,7 +336,7 @@ static uint16_t cpu_getmodrm_offset(unsigned ModRM)
     }
 }
 
-static uint32_t GetModRMAddress(unsigned ModRM)
+static uint32_t cpu_get_modrm_address(unsigned ModRM)
 {
     uint16_t disp = cpu_getmodrm_offset(ModRM);
     switch(ModRM & 0xC7)
@@ -377,8 +377,8 @@ static uint16_t cpu_getmodrm_rm_w(unsigned ModRM)
 {
     if(ModRM >= 0xc0)
         return wregs[ModRM & 7];
-    ModRMAddress = GetModRMAddress(ModRM);
-    return GetMemAbsW(ModRMAddress);
+    ModRMAddress = cpu_get_modrm_address(ModRM);
+    return mem_get_abs_w(ModRMAddress);
 }
 
 static uint8_t cpu_getmodrm_rm_b(unsigned ModRM)
@@ -391,11 +391,11 @@ static uint8_t cpu_getmodrm_rm_b(unsigned ModRM)
         else
             return wregs[reg] & 0xFF;
     }
-    ModRMAddress = GetModRMAddress(ModRM);
+    ModRMAddress = cpu_get_modrm_address(ModRM);
     return GetMemAbsB(ModRMAddress);
 }
 
-static void set_modrm_rm_w(unsigned ModRM, uint16_t val)
+static void cpu_setmodrm_rm_w(unsigned ModRM, uint16_t val)
 {
     if(ModRM >= 0xc0)
         wregs[ModRM & 7] = val;
@@ -403,7 +403,7 @@ static void set_modrm_rm_w(unsigned ModRM, uint16_t val)
         SetMemAbsW(ModRMAddress, val);
 }
 
-static void SetModRMRMB(unsigned ModRM, uint8_t val)
+static void cpu_set_modrm_rm_b(unsigned ModRM, uint8_t val)
 {
     if(ModRM >= 0xc0)
     {
@@ -437,12 +437,12 @@ static void next_instruction(void)
         cpu_do_instruction(cpu_fetchb());
 }
 
-static void interrupt(unsigned int_num)
+static void cpu_interrupt(unsigned int_num)
 {
     uint16_t dest_seg, dest_off;
 
-    dest_off = GetMemAbsW(int_num * 4);
-    dest_seg = GetMemAbsW(int_num * 4 + 2);
+    dest_off = mem_get_abs_w(int_num * 4);
+    dest_seg = mem_get_abs_w(int_num * 4 + 2);
 
     cpu_stack_pushw(CompressFlags());
     cpu_stack_pushw(sregs[CS]);
@@ -463,7 +463,7 @@ static void do_retf(void)
 static void trap_1(void)
 {
     next_instruction();
-    interrupt(1);
+    cpu_interrupt(1);
 }
 
 static void cpu_do_popf(void)
@@ -484,7 +484,7 @@ static void do_iret(void)
 static void cpu_trap(int num)
 {
     ip = start_ip;
-    interrupt(num);
+    cpu_interrupt(num);
 }
 
 static void handle_irq(void)
@@ -500,9 +500,9 @@ static void handle_irq(void)
             debug(debug_int, "handle irq, mask=$%04x irq=%d\n", irq_mask, irqn);
             irq_mask &= ~bit;
             if(irqn < 8)
-                interrupt(8 + irqn);
+                cpu_interrupt(8 + irqn);
             else
-                interrupt(0x68 + irqn);
+                cpu_interrupt(0x68 + irqn);
         }
     }
 }
@@ -1126,7 +1126,7 @@ static void cpu_op_mov_wsreg(void)
 {
     int ModRM = cpu_fetchb();
     cpu_getmodrm_rm_w(ModRM);
-    set_modrm_rm_w(ModRM, sregs[(ModRM & 0x18) >> 3]);
+    cpu_setmodrm_rm_w(ModRM, sregs[(ModRM & 0x18) >> 3]);
 }
 
 static void cpu_op_mov_sregw(void)
@@ -1152,8 +1152,8 @@ static void cpu_op_popw(void)
     //    if( get_modrm_reg_w(ModRM) != 0 )
     //        return; // TODO: illegal instruction - ignored in 8086
     if(ModRM < 0xc0)
-        ModRMAddress = GetModRMAddress(ModRM);
-    set_modrm_rm_w(ModRM, cpu_stack_popw());
+        ModRMAddress = cpu_get_modrm_address(ModRM);
+    cpu_setmodrm_rm_w(ModRM, cpu_stack_popw());
 }
 
 static void cpu_op_call_far(void)
@@ -1322,7 +1322,7 @@ static void cpu_op_les_dw(void)
 {
     GET_r16w();
     dest = src;
-    sregs[ES] = GetMemAbsW(ModRMAddress + 2);
+    sregs[ES] = mem_get_abs_w(ModRMAddress + 2);
     SET_r16w();
 }
 
@@ -1330,7 +1330,7 @@ static void cpu_op_lds_dw(void)
 {
     GET_r16w();
     dest = src;
-    sregs[DS] = GetMemAbsW(ModRMAddress + 2);
+    sregs[DS] = mem_get_abs_w(ModRMAddress + 2);
     SET_r16w();
 }
 
@@ -1338,7 +1338,7 @@ static void cpu_op_mov_bd8(void)
 {
     int ModRM = cpu_fetchb();
     if(ModRM < 0xc0)
-        ModRMAddress = GetModRMAddress(ModRM);
+        ModRMAddress = cpu_get_modrm_address(ModRM);
     uint8_t dest = cpu_fetchb();
     SET_br8();
 }
@@ -1347,7 +1347,7 @@ static void cpu_op_mov_wd16(void)
 {
     int ModRM = cpu_fetchb();
     if(ModRM < 0xc0)
-        ModRMAddress = GetModRMAddress(ModRM);
+        ModRMAddress = cpu_get_modrm_address(ModRM);
     uint16_t dest = cpu_fetchw();
     SET_wr16();
 }
@@ -1361,18 +1361,18 @@ static void cpu_op_retf_d16(void)
 
 static void cpu_op_int3(void)
 {
-    interrupt(3);
+    cpu_interrupt(3);
 }
 
 static void cpu_op_int(void)
 {
-    interrupt(cpu_fetchb());
+    cpu_interrupt(cpu_fetchb());
 }
 
 static void cpu_op_into(void)
 {
     if(OF)
-        interrupt(4);
+        cpu_interrupt(4);
 }
 
 static uint8_t cpu_shift1_b(uint8_t val, int ModRM)
@@ -1693,7 +1693,7 @@ static void cpu_op_c0pre(void)
 
     dest = cpu_shifts_b(dest, ModRM, count);
 
-    SetModRMRMB(ModRM, dest);
+    cpu_set_modrm_rm_b(ModRM, dest);
 }
 
 static void cpu_op_c1pre(void)
@@ -1704,7 +1704,7 @@ static void cpu_op_c1pre(void)
 
     dest = cpu_shifts_w(dest, ModRM, count);
 
-    set_modrm_rm_w(ModRM, dest);
+    cpu_setmodrm_rm_w(ModRM, dest);
 }
 
 static void cpu_op_d0pre(void)
@@ -1714,7 +1714,7 @@ static void cpu_op_d0pre(void)
 
     dest = cpu_shift1_b(dest, ModRM);
 
-    SetModRMRMB(ModRM, dest);
+    cpu_set_modrm_rm_b(ModRM, dest);
 }
 
 static void cpu_op_d1pre(void)
@@ -1724,7 +1724,7 @@ static void cpu_op_d1pre(void)
 
     dest = cpu_shift1_w(dest, ModRM);
 
-    set_modrm_rm_w(ModRM, dest);
+    cpu_setmodrm_rm_w(ModRM, dest);
 }
 
 static void cpu_op_d2pre(void)
@@ -1734,7 +1734,7 @@ static void cpu_op_d2pre(void)
 
     dest = cpu_shifts_b(dest, ModRM, wregs[CX] & 0xFF);
 
-    SetModRMRMB(ModRM, dest);
+    cpu_set_modrm_rm_b(ModRM, dest);
 }
 
 static void cpu_op_d3pre(void)
@@ -1744,7 +1744,7 @@ static void cpu_op_d3pre(void)
 
     dest = cpu_shifts_w(dest, ModRM, wregs[CX] & 0xFF);
 
-    set_modrm_rm_w(ModRM, dest);
+    cpu_setmodrm_rm_w(ModRM, dest);
 }
 
 static void cpu_op_aam(void)
@@ -2039,7 +2039,7 @@ static void cpu_op_f6pre(void)
         SetPF(dest);
         break;
     case 0x10: /* NOT Eb */
-        SetModRMRMB(ModRM, ~dest);
+        cpu_set_modrm_rm_b(ModRM, ~dest);
         break;
     case 0x18: /* NEG Eb */
         dest = 0x100 - dest;
@@ -2049,7 +2049,7 @@ static void cpu_op_f6pre(void)
         SetZFB(dest);
         SetSFB(dest);
         SetPF(dest);
-        SetModRMRMB(ModRM, dest);
+        cpu_set_modrm_rm_b(ModRM, dest);
         break;
     case 0x20: /* MUL AL, Eb */
     {
@@ -2113,7 +2113,7 @@ static void cpu_op_f7pre(void)
         break;
 
     case 0x10: /* NOT Ew */
-        set_modrm_rm_w(ModRM, ~dest);
+        cpu_setmodrm_rm_w(ModRM, ~dest);
         break;
 
     case 0x18: /* NEG Ew */
@@ -2124,7 +2124,7 @@ static void cpu_op_f7pre(void)
         SetZFW(dest);
         SetSFW(dest);
         SetPF(dest);
-        set_modrm_rm_w(ModRM, dest);
+        cpu_setmodrm_rm_w(ModRM, dest);
         break;
     case 0x20: /* MUL AX, Ew */
     {
@@ -2216,7 +2216,7 @@ static void cpu_op_bound(void)
     int ModRM = cpu_fetchb();
     uint16_t src = get_modrm_reg_w(ModRM);
     uint16_t low = cpu_getmodrm_rm_w(ModRM);
-    uint16_t hi = GetMemAbsW(ModRMAddress + 2);
+    uint16_t hi = mem_get_abs_w(ModRMAddress + 2);
     if(src < low || src > hi)
         cpu_trap(5);
 }
@@ -2241,7 +2241,7 @@ static void cpu_op_fepre(void)
     SetZFB(dest);
     SetSFB(dest);
     SetPF(dest);
-    SetModRMRMB(ModRM, dest);
+    cpu_set_modrm_rm_b(ModRM, dest);
 }
 
 static void cpu_op_ffpre(void)
@@ -2258,7 +2258,7 @@ static void cpu_op_ffpre(void)
         SetZFW(dest);
         SetSFW(dest);
         SetPF(dest);
-        set_modrm_rm_w(ModRM, dest);
+        cpu_setmodrm_rm_w(ModRM, dest);
         break;
     case 0x08: /* DEC ew */
         dest = dest - 1;
@@ -2267,7 +2267,7 @@ static void cpu_op_ffpre(void)
         SetZFW(dest);
         SetSFW(dest);
         SetPF(dest);
-        set_modrm_rm_w(ModRM, dest);
+        cpu_setmodrm_rm_w(ModRM, dest);
         break;
     case 0x10: /* CALL ew */
         cpu_stack_pushw(ip);
@@ -2277,14 +2277,14 @@ static void cpu_op_ffpre(void)
         cpu_stack_pushw(sregs[CS]);
         cpu_stack_pushw(ip);
         ip = dest;
-        sregs[CS] = GetMemAbsW(ModRMAddress + 2);
+        sregs[CS] = mem_get_abs_w(ModRMAddress + 2);
         break;
     case 0x20: /* JMP ea */
         ip = dest;
         break;
     case 0x28: /* JMP FAR ea */
         ip = dest;
-        sregs[CS] = GetMemAbsW(ModRMAddress + 2);
+        sregs[CS] = mem_get_abs_w(ModRMAddress + 2);
         break;
     case 0x30: /* PUSH ea */
         cpu_stack_pushw(dest);
