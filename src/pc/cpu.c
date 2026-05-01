@@ -239,7 +239,7 @@ static uint16_t cpu_fetchw(void)
     uint16_t dest = get_modrm_reg_w(ModRM);                                       \
     uint16_t src = get_modrm_rm_w(ModRM)
 
-#define SET_r16w() set_modrm_reg_w(ModRM, dest)
+#define SET_r16w() cpu_setmodrm_reg_w(ModRM, dest)
 
 void cpu_init(void)
 {
@@ -301,10 +301,10 @@ static void cpu_setmodrm_reg_b(unsigned ModRM, uint8_t val)
 }
 
 #define get_modrm_reg_w(ModRM) (wregs[(ModRM & 0x38) >> 3])
-#define SetModRMRegW(ModRM, val) wregs[(ModRM & 0x38) >> 3] = val;
+#define cpu_setmodrm_reg_w(ModRM, val) wregs[(ModRM & 0x38) >> 3] = val;
 
 // Used on LEA instruction
-static uint16_t GetModRMOffset(unsigned ModRM)
+static uint16_t cpu_getmodrm_offset(unsigned ModRM)
 {
     switch(ModRM & 0xC7)
     {
@@ -338,7 +338,7 @@ static uint16_t GetModRMOffset(unsigned ModRM)
 
 static uint32_t GetModRMAddress(unsigned ModRM)
 {
-    uint16_t disp = GetModRMOffset(ModRM);
+    uint16_t disp = cpu_getmodrm_offset(ModRM);
     switch(ModRM & 0xC7)
     {
     case 0x00:
@@ -1138,12 +1138,12 @@ static void cpu_op_mov_sregw(void)
 static void cpu_op_lea(void)
 {
     int ModRM = cpu_fetchb();
-    uint16_t offs = GetModRMOffset(ModRM);
+    uint16_t offs = cpu_getmodrm_offset(ModRM);
 
     if(ModRM >= 0xc0)
         return; // TODO: ILLEGAL INSTRUCTION!!!
 
-    SetModRMRegW(ModRM, offs);
+    cpu_setmodrm_reg_w(ModRM, offs);
 }
 
 static void cpu_op_popw(void)
