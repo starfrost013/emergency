@@ -101,7 +101,7 @@ static void close_log_files(void)
         }
 }
 
-void init_debug(const char *base)
+void debug_init(const char *base)
 {
     if(getenv(ENV_DBG_NAME))
         base = getenv(ENV_DBG_NAME);

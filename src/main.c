@@ -157,7 +157,9 @@ int main(int argc, char **argv)
         print_usage_error("program name expected.");
 
     // Init debug facilities
-    init_debug(argv[1]);
+    debug_init(argv[1]);
+
+    debug(debug_verbose, "CPU is initialising...");
     cpu_init();
 
     if(bin_load_addr >= 0)

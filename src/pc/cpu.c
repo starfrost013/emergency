@@ -278,6 +278,10 @@ void cpu_init(void)
         if(speed >= 1 && speed <= INT_MAX / 2)
             ins_per_ms = speed;
     }
+
+    if (ins_per_ms > 0)
+        debug(debug_verbose, "cpu_init: instructions per ms (ENV_CPUSPEED) set to %d\n", ins_per_ms);
+
     emu_get_time(&next_sleep_time);
     emu_advance_time(1000, &next_sleep_time);
 }

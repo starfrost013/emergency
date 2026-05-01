@@ -22,6 +22,6 @@ enum debug_type
     debug_MAX
 };
 
-void init_debug(const char *name);
+void debug_init(const char *name);
 void debug(enum debug_type, PRINTF_FORMAT const char *format, ...) PRINTF_FORMAT_ATTR(2, 3);
 int debug_active(enum debug_type);

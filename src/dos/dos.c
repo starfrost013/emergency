@@ -2767,8 +2767,8 @@ void intr29(void)
 {
     uint16_t ax = cpuGetAX();
     // Fast video output
-    debug(debug_int, "D-29: AX=%04X\n", ax);
-    debug(debug_dos, "D-29:   fast console out  AX=%04X\n", ax);
+    debug(debug_int, "DOS INT 29h: AX=%04X\n", ax);
+    debug(debug_dos, "DOS INT 29h   fast console out  AX=%04X\n", ax);
     dos_putchar(ax & 0xFF, 1);
 }
 
