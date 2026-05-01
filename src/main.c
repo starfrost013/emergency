@@ -198,7 +198,7 @@ int main(int argc, char **argv)
     while(1)
     {
         exit_cpu = 0;
-        execute();
+        cpu_execute();
         emulator_update();
     }
 }

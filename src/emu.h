@@ -20,7 +20,7 @@ void write_port(unsigned port, uint8_t value);
 void bios_routine(unsigned inum);
 
 // CPU interface
-void execute(void); // 1 ins.
+void cpu_execute(void); // 1 ins.
 void cpu_init(void);
 
 // async HW update

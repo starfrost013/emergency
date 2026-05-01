@@ -2603,7 +2603,7 @@ static void cpu_do_instruction(uint8_t code)
     };
 }
 
-void execute(void)
+void cpu_execute(void)
 {
     for(; !exit_cpu;)
     {
