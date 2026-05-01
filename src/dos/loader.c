@@ -402,30 +402,30 @@ static void cmdline_to_fcb(const char *cmd_line, uint8_t *fcb1, uint8_t *fcb2)
 static void mcb_new(uint16_t mcb, uint16_t owner, uint16_t size, int last)
 {
     memory[mcb * 16 + 0] = last ? 'Z' : 'M';
-    put16(mcb * 16 + 1, owner);
-    put16(mcb * 16 + 3, size);
+    mem_put_16(mcb * 16 + 1, owner);
+    mem_put_16(mcb * 16 + 3, size);
     debug(debug_dos, "\tmcb_new: mcb:$%04X type:%c owner:$%04X size:$%04X\n", mcb,
           last ? 'Z' : 'M', owner, size);
 }
 
 static uint16_t mcb_size(uint16_t mcb)
 {
-    return get16(mcb * 16 + 3);
+    return mem_get_16(mcb * 16 + 3);
 }
 
 static void mcb_set_size(uint16_t mcb, uint16_t sz)
 {
-    put16(mcb * 16 + 3, sz);
+    mem_put_16(mcb * 16 + 3, sz);
 }
 
 static uint16_t mcb_owner(uint16_t mcb)
 {
-    return get16(mcb * 16 + 1);
+    return mem_get_16(mcb * 16 + 1);
 }
 
 static void mcb_set_owner(uint16_t mcb, uint16_t owner)
 {
-    put16(mcb * 16 + 1, owner);
+    mem_put_16(mcb * 16 + 1, owner);
 }
 
 static uint16_t mcb_ok(uint16_t mcb)
@@ -680,7 +680,7 @@ uint16_t create_PSP(const char *cmdline, const char *environment, uint16_t env_s
     // Copy environment:
     memcpy(memory + env_seg * 16, environment, env_size);
     // Then, a word == 1
-    put16(env_seg * 16 + env_size, 1);
+    mem_put_16(env_seg * 16 + env_size, 1);
     // And the program name
     if(progname)
     {
@@ -760,8 +760,8 @@ int dos_read_overlay(FILE *f, uint16_t load_seg, uint16_t reloc_seg)
         uint16_t roff = g16(reloc);
         uint16_t rseg = load_seg + g16(reloc + 2);
         int pos = roff + 16 * rseg;
-        uint16_t n = get16(pos);
-        put16(pos, n + reloc_seg);
+        uint16_t n = mem_get_16(pos);
+        mem_put_16(pos, n + reloc_seg);
         reloc_off += 4;
         nreloc--;
     }
@@ -791,7 +791,7 @@ int dos_load_exe(FILE *f, uint16_t psp_mcb)
             return 0;
 
         // Fill top program address in PSP
-        put16(psp_mcb * 16 + 16 + 2, psp_mcb + mcb_size(psp_mcb) + 1);
+        mem_put_16(psp_mcb * 16 + 16 + 2, psp_mcb + mcb_size(psp_mcb) + 1);
 
         cpuSetIP(0x100);
         cpuSetCS(psp_mcb + 1);
@@ -842,7 +842,7 @@ int dos_load_exe(FILE *f, uint16_t psp_mcb)
           exe_sz, g16(buf + 10), g16(buf + 12), mcb_size(psp_mcb));
 
     // Fill top program address in PSP
-    put16(psp_mcb * 16 + 16 + 2, psp_mcb + mcb_size(psp_mcb) + 1);
+    mem_put_16(psp_mcb * 16 + 16 + 2, psp_mcb + mcb_size(psp_mcb) + 1);
 
     // Seek to start of data and read
     fseek(f, head_size, SEEK_SET);
@@ -892,8 +892,8 @@ int dos_load_exe(FILE *f, uint16_t psp_mcb)
         uint16_t roff = g16(reloc);
         uint16_t rseg = load_seg + g16(reloc + 2);
         int pos = roff + 16 * rseg;
-        uint16_t n = get16(pos);
-        put16(pos, n + load_seg);
+        uint16_t n = mem_get_16(pos);
+        mem_put_16(pos, n + load_seg);
         reloc_off += 4;
         nreloc--;
     }

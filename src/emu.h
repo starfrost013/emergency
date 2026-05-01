@@ -36,6 +36,7 @@ void cpuTriggerIRQ(int num);
 
 // Register reading/writing
 void cpuSetAL(unsigned v);
+void cpuSetAH(unsigned v);
 void cpuSetAX(unsigned v);
 void cpuSetCL(unsigned v);
 void cpuSetCH(unsigned v);
@@ -44,6 +45,8 @@ void cpuSetDL(unsigned v);
 void cpuSetDH(unsigned v);
 void cpuSetDX(unsigned v);
 void cpuSetBX(unsigned v);
+void cpuSetBL(unsigned v);
+void cpuSetBH(unsigned v);
 void cpuSetSP(unsigned v);
 void cpuSetBP(unsigned v);
 void cpuSetSI(unsigned v);
@@ -54,6 +57,8 @@ void cpuSetSS(unsigned v);
 void cpuSetDS(unsigned v);
 void cpuSetIP(unsigned v);
 
+unsigned cpuGetAL(void);
+unsigned cpuGetAH(void);
 unsigned cpuGetAX(void);
 unsigned cpuGetCL(void);
 unsigned cpuGetCH(void);
@@ -62,6 +67,8 @@ unsigned cpuGetDL(void);
 unsigned cpuGetDH(void);
 unsigned cpuGetDX(void);
 unsigned cpuGetBX(void);
+unsigned cpuGetBL(void);
+unsigned cpuGetBH(void);
 unsigned cpuGetSP(void);
 unsigned cpuGetBP(void);
 unsigned cpuGetSI(void);
@@ -95,48 +102,48 @@ void cpuClrStartupFlag(enum cpuFlags flag);
 
 // Helper functions to access memory
 // Read 16 bit number
-static inline void put16(int addr, int v)
+static inline void mem_put_16(int addr, int v)
 {
     memory[0xFFFFF & (addr)] = v;
     memory[0xFFFFF & (addr + 1)] = v >> 8;
 }
 
 // Read 32 bit number
-static inline void put32(int addr, unsigned v)
+static inline void mem_put_32(int addr, unsigned v)
 {
-    put16(addr, v & 0xFFFF);
-    put16(addr + 2, v >> 16);
+    mem_put_16(addr, v & 0xFFFF);
+    mem_put_16(addr + 2, v >> 16);
 }
 
 // Write 16 bit number
-static inline unsigned get16(int addr)
+static inline unsigned mem_get_16(int addr)
 {
     return memory[0xFFFFF & addr] + (memory[0xFFFFF & (addr + 1)] << 8);
 }
 
 // Write 32 bit number
-static inline unsigned get32(int addr)
+static inline unsigned mem_get_32(int addr)
 {
-    return get16(addr) + (get16(addr + 2) << 16);
+    return mem_get_16(addr) + (mem_get_16(addr + 2) << 16);
 }
 
 // Push word to stack
 static inline void cpuPushWord(uint16_t w)
 {
     cpuSetSP(cpuGetSP() - 2);
-    put16(cpuGetSS() * 16 + cpuGetSP(), w);
+    mem_put_16(cpuGetSS() * 16 + cpuGetSP(), w);
 }
 
 // Pop word from stack
 static inline int cpuPopWord(void)
 {
-    int w = get16(cpuGetSS() * 16 + cpuGetSP());
+    int w = mem_get_16(cpuGetSS() * 16 + cpuGetSP());
     cpuSetSP(cpuGetSP() + 2);
     return w;
 }
 
 // Copy data to CPU memory
-static inline int putmem(uint32_t dest, const uint8_t *src, unsigned size)
+static inline int mem_put(uint32_t dest, const uint8_t *src, unsigned size)
 {
     if(size >= 0x100000 || dest >= 0x100000 || size + dest >= 0x100000)
         return 1;
@@ -145,7 +152,7 @@ static inline int putmem(uint32_t dest, const uint8_t *src, unsigned size)
 }
 
 // Get pointer to CPU memory or null if overflow
-static inline uint8_t *getptr(uint32_t addr, unsigned size)
+static inline uint8_t *mem_get_ptr(uint32_t addr, unsigned size)
 {
     if(size >= 0x100000 || addr >= 0x100000 || size + addr >= 0x100000)
         return 0;
@@ -154,7 +161,7 @@ static inline uint8_t *getptr(uint32_t addr, unsigned size)
 
 // Get a copy of CPU memory forcing a nul byte at end.
 // Four static buffers are used, so at most 4 results can be in use.
-static inline char *getstr(uint32_t addr, unsigned size)
+static inline char *mem_get_str(uint32_t addr, unsigned size)
 {
     static int cbuf = 0;
     static char buf[4][256];

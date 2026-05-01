@@ -293,7 +293,7 @@ static int get_fcb(void)
 
 static int get_fcb_handle(void)
 {
-    return get16(0x18 + get_fcb());
+    return mem_get_16(0x18 + get_fcb());
 }
 
 static void dos_show_fcb(void)
@@ -302,13 +302,13 @@ static void dos_show_fcb(void)
         return;
 
     int addr = cpuGetAddrDS(cpuGetDX());
-    char *name = getstr(addr + 1, 11);
+    char *name = mem_get_str(addr + 1, 11);
     debug(debug_dos,
           "\tFCB:"
           "[d=%02x:n=%.8s.%.3s:bn=%04x:rs=%04x:fs=%08x:h=%04x:rn=%02x:ra=%08x]\n",
-          memory[addr], name, name + 8, get16(addr + 0x0C), get16(addr + 0x0E),
-          get32(addr + 0x10), get16(addr + 0x18), memory[addr + 0x20],
-          get32(addr + 0x21));
+          memory[addr], name, name + 8, mem_get_16(addr + 0x0C), mem_get_16(addr + 0x0E),
+          mem_get_32(addr + 0x10), mem_get_16(addr + 0x18), memory[addr + 0x20],
+          mem_get_32(addr + 0x21));
 }
 
 static void dos_open_file_fcb(int create)
@@ -348,12 +348,12 @@ static void dos_open_file_fcb(int create)
     long sz = ftell(handles[h]);
     fseek(handles[h], 0, SEEK_SET);
     // Set FCB info:
-    put16(fcb_addr + 0x0C, 0);   // block number
-    put16(fcb_addr + 0x0E, 128); // record size
-    put32(fcb_addr + 0x10, sz);  // file size
-    put16(fcb_addr + 0x14, 0);   // date of last write
-    put16(fcb_addr + 0x16, 0);   // time of last write
-    put16(fcb_addr + 0x18, h);   // reserved - store DOS handle!
+    mem_put_16(fcb_addr + 0x0C, 0);   // block number
+    mem_put_16(fcb_addr + 0x0E, 128); // record size
+    mem_put_32(fcb_addr + 0x10, sz);  // file size
+    mem_put_16(fcb_addr + 0x14, 0);   // date of last write
+    mem_put_16(fcb_addr + 0x16, 0);   // time of last write
+    mem_put_16(fcb_addr + 0x18, h);   // reserved - store DOS handle!
     memory[fcb_addr + 0x20] = 0; // current record
     // Do not initialize random position - old DOS apps assume each FCB holds
     // up to 33 bytes.
@@ -372,11 +372,11 @@ static void dos_open_file_fcb(int create)
 
 static void dos_seq_to_rand_fcb(int fcb)
 {
-    unsigned rsize = get16(0x0E + fcb);
+    unsigned rsize = mem_get_16(0x0E + fcb);
     unsigned recnum = memory[0x20 + fcb];
-    unsigned bnum = get16(0x0C + fcb);
+    unsigned bnum = mem_get_16(0x0C + fcb);
     unsigned rand = recnum + 128 * bnum;
-    put16(0x21 + fcb, rand & 0xFFFF);
+    mem_put_16(0x21 + fcb, rand & 0xFFFF);
     memory[0x23 + fcb] = rand >> 16;
     if(rsize < 64)
         memory[0x24 + fcb] = rand >> 24;
@@ -392,21 +392,21 @@ static int dos_rw_record_fcb(unsigned addr, int write, int update, int seq)
     }
 
     int fcb = get_fcb();
-    unsigned rsize = get16(0x0E + fcb);
+    unsigned rsize = mem_get_16(0x0E + fcb);
     unsigned pos;
 
     if(seq)
     {
         unsigned recnum = memory[0x20 + fcb];
-        unsigned bnum = get16(0x0C + fcb);
+        unsigned bnum = mem_get_16(0x0C + fcb);
         pos = rsize * (recnum + 128 * bnum);
     }
     else if(rsize < 64)
-        pos = rsize * get32(0x21 + fcb);
+        pos = rsize * mem_get_32(0x21 + fcb);
     else
-        pos = rsize * (0xFFFFFF & get32(0x21 + fcb));
+        pos = rsize * (0xFFFFFF & mem_get_32(0x21 + fcb));
 
-    uint8_t *buf = getptr(addr, rsize);
+    uint8_t *buf = mem_get_ptr(addr, rsize);
     if(!buf || !rsize)
     {
         debug(debug_dos, "\tbuffer pointer invalid\n");
@@ -423,13 +423,13 @@ static int dos_rw_record_fcb(unsigned addr, int write, int update, int seq)
     {
         unsigned rnum = (pos + ((n > 0) ? rsize : 0)) / rsize;
         memory[0x20 + fcb] = rnum & 127;
-        put16(0x0C + fcb, rnum / 128);
+        mem_put_16(0x0C + fcb, rnum / 128);
         if(!seq)
             dos_seq_to_rand_fcb(fcb);
     }
     // Update file size
-    if(write && (pos + n > get32(fcb + 0x10)))
-        put32(fcb + 0x10, pos + n);
+    if(write && (pos + n > mem_get_32(fcb + 0x10)))
+        mem_put_32(fcb + 0x10, pos + n);
 
     dos_error = 0;
     if(n == rsize)
@@ -624,25 +624,25 @@ static void dos_find_next(int first)
             if(0 == stat(d->unixname, &st))
             {
                 memory[dosDTA + 0x15] = get_attributes(st.st_mode);
-                put32(dosDTA + 0x16, get_time_date(st.st_mtime));
-                put32(dosDTA + 0x1A, (st.st_size > 0x7FFFFFFF) ? 0x7FFFFFFF : st.st_size);
+                mem_put_32(dosDTA + 0x16, get_time_date(st.st_mtime));
+                mem_put_32(dosDTA + 0x1A, (st.st_size > 0x7FFFFFFF) ? 0x7FFFFFFF : st.st_size);
             }
             else
             {
                 memory[dosDTA + 0x15] = 0;
-                put32(dosDTA + 0x16, 0x10001);
-                put32(dosDTA + 0x1A, 0);
+                mem_put_32(dosDTA + 0x16, 0x10001);
+                mem_put_32(dosDTA + 0x1A, 0);
             }
         }
         else
         {
             // Fills volume label data
             memory[dosDTA + 0x15] = 8;
-            put32(dosDTA + 0x16, get_time_date(time(0)));
-            put32(dosDTA + 0x1A, 0);
+            mem_put_32(dosDTA + 0x16, get_time_date(time(0)));
+            mem_put_32(dosDTA + 0x1A, 0);
         }
         // Fills dos file name
-        putmem(dosDTA + 0x1E, d->dosname, 13);
+        mem_put(dosDTA + 0x1E, d->dosname, 13);
         // Next file
         p->find_first_ptr++;
         cpuClrFlag(cpuFlag_CF);
@@ -708,21 +708,21 @@ static void dos_find_next_fcb(void)
             if(0 == stat(d->unixname, &st))
             {
                 memory[ofcb + 0x0C] = get_attributes(st.st_mode);
-                put32(ofcb + 0x17, get_time_date(st.st_mtime));
-                put32(ofcb + 0x1D, (st.st_size > 0x7FFFFFFF) ? 0x7FFFFFFF : st.st_size);
+                mem_put_32(ofcb + 0x17, get_time_date(st.st_mtime));
+                mem_put_32(ofcb + 0x1D, (st.st_size > 0x7FFFFFFF) ? 0x7FFFFFFF : st.st_size);
             }
             else
             {
                 memory[ofcb + 0x0C] = 0;
-                put32(ofcb + 0x17, 0x10001);
-                put32(ofcb + 0x1D, 0);
+                mem_put_32(ofcb + 0x17, 0x10001);
+                mem_put_32(ofcb + 0x1D, 0);
             }
         }
         else
         {
             memory[ofcb + 0x0C] = 8;
-            put32(ofcb + 0x17, get_time_date(time(0)));
-            put32(ofcb + 0x1D, 0);
+            mem_put_32(ofcb + 0x17, get_time_date(time(0)));
+            mem_put_32(ofcb + 0x1D, 0);
         }
         if(exfcb)
         {
@@ -1182,7 +1182,7 @@ void intr2f(void)
         cpuSetDI((dos_append & 0xF) + 24);
         break;
     case 0xB706: // Get Append Function State
-        cpuSetBX(get16(dos_append));
+        cpuSetBX(mem_get_16(dos_append));
         break;
     case 0xB710: // Get Version
         cpuSetDX(0x0303);
@@ -1204,9 +1204,9 @@ void intr21(void)
         cpuSetSP(cpuGetSP() + 6);
         // Fix-up return address, interchanges segment/ip:
         int stack = cpuGetAddress(cpuGetSS(), cpuGetSP());
-        put16(stack, ip);
-        put16(stack + 2, cs);
-        put16(stack + 4, flags);
+        mem_put_16(stack, ip);
+        mem_put_16(stack + 2, cs);
+        mem_put_16(stack + 4, flags);
         // Call ourselves
         intr21();
         // Restore AH
@@ -1224,8 +1224,8 @@ void intr21(void)
     // According to DOSBOX, only set for certain functions:
     if(ah != 0x50 && ah != 0x51 && ah != 0x62 && ah != 0x64 && ah < 0x6c)
     {
-        put16(cpuGetAddress(get_current_PSP(), 0x2E), cpuGetSP());
-        put16(cpuGetAddress(get_current_PSP(), 0x30), cpuGetSS());
+        mem_put_16(cpuGetAddress(get_current_PSP(), 0x2E), cpuGetSP());
+        mem_put_16(cpuGetAddress(get_current_PSP(), 0x30), cpuGetSS());
     }
 
     bool invalid = false;
@@ -1464,8 +1464,8 @@ void intr21(void)
         dos_seq_to_rand_fcb(get_fcb());
         break;
     case 0x25: // set interrupt vector
-        put16(4 * (ax & 0xFF), cpuGetDX());
-        put16(4 * (ax & 0xFF) + 2, cpuGetDS());
+        mem_put_16(4 * (ax & 0xFF), cpuGetDX());
+        mem_put_16(4 * (ax & 0xFF) + 2, cpuGetDS());
         // If the application installed a keyboard interrupt handler, we should
         // enable keyboard emulation to actually generate the interrupts.
         if(9 == (ax & 0xFF))
@@ -1473,8 +1473,8 @@ void intr21(void)
         break;
     case 0x26: // Create PSP (duplicate current PSP)
     {
-        uint8_t *new_psp = getptr(cpuGetAddress(cpuGetDX(), 0), 0x100);
-        uint8_t *orig_psp = getptr(cpuGetAddress(get_current_PSP(), 0), 0x100);
+        uint8_t *new_psp = mem_get_ptr(cpuGetAddress(cpuGetDX(), 0), 0x100);
+        uint8_t *orig_psp = mem_get_ptr(cpuGetAddress(get_current_PSP(), 0), 0x100);
         if(!new_psp || !orig_psp)
         {
             debug(debug_dos, "\tinvalid new PSP segment %04x.\n", cpuGetDX());
@@ -1490,7 +1490,7 @@ void intr21(void)
         dos_show_fcb();
         int fcb = get_fcb();
         unsigned count = cpuGetCX();
-        unsigned rsize = get16(0x0E + fcb);
+        unsigned rsize = mem_get_16(0x0E + fcb);
         unsigned e = 0;
         unsigned target = dosDTA;
 
@@ -1515,9 +1515,9 @@ void intr21(void)
     case 0x29: // PARSE FILENAME TO FCB
     {
         // TODO: length could be more than 64 bytes!
-        char *fname = getstr(cpuGetAddrDS(cpuGetSI()), 64);
+        char *fname = mem_get_str(cpuGetAddrDS(cpuGetSI()), 64);
         char *orig = fname;
-        uint8_t *dst = getptr(cpuGetAddrES(cpuGetDI()), 37);
+        uint8_t *dst = mem_get_ptr(cpuGetAddrES(cpuGetDI()), 37);
         if(!dst)
         {
             debug(debug_dos, "\tinvalid destination\n");
@@ -1684,8 +1684,8 @@ void intr21(void)
             cpuSetDX((cpuGetDX() & 0xFF00) | 1); // Ignore new state
         break;
     case 0x35: // get interrupt vector
-        cpuSetBX(get16(4 * (ax & 0xFF)));
-        cpuSetES(get16(4 * (ax & 0xFF) + 2));
+        cpuSetBX(mem_get_16(4 * (ax & 0xFF)));
+        cpuSetES(mem_get_16(4 * (ax & 0xFF) + 2));
         break;
     case 0x36: // get free space
         // We only return 512MB free, as some old DOS programs crash if
@@ -1699,7 +1699,7 @@ void intr21(void)
         cpuSetDX('/');
         break;
     case 0x38: // GET COUNTRY INFO
-        putmem(cpuGetAddrDS(cpuGetDX()), nls_country_info, 34);
+        mem_put(cpuGetAddrDS(cpuGetDX()), nls_country_info, 34);
         break;
     case 0x39: // MKDIR
         create_dir();
@@ -1741,7 +1741,7 @@ void intr21(void)
             cpuSetAX(dos_error);
             break;
         }
-        uint8_t *buf = getptr(cpuGetAddrDS(cpuGetDX()), cpuGetCX());
+        uint8_t *buf = mem_get_ptr(cpuGetAddrDS(cpuGetDX()), cpuGetCX());
         if(!buf)
         {
             debug(debug_dos, "\tbuffer pointer invalid\n");
@@ -1803,7 +1803,7 @@ void intr21(void)
             }
             break;
         }
-        uint8_t *buf = getptr(cpuGetAddrDS(cpuGetDX()), len);
+        uint8_t *buf = mem_get_ptr(cpuGetAddrDS(cpuGetDX()), len);
         if(!buf)
         {
             debug(debug_dos, "\tbuffer pointer invalid\n");
@@ -2018,7 +2018,7 @@ void intr21(void)
         // Note: ignore drive letter in DL
         const uint8_t *path = dos_get_cwd(cpuGetDX() & 0xFF);
         debug(debug_dos, "\tcwd '%c' = '%s'\n", '@' + (int)(cpuGetDX() & 0xFF), path);
-        putmem(cpuGetAddrDS(cpuGetSI()), path, 64);
+        mem_put(cpuGetAddrDS(cpuGetSI()), path, 64);
         cpuSetAX(0x0100);
         dos_error = 0;
         cpuClrFlag(cpuFlag_CF);
@@ -2087,8 +2087,8 @@ void intr21(void)
         {
             debug(debug_dos, "\tload overlay '%s'\n", fname);
             int pb = cpuGetAddrES(cpuGetBX());
-            uint16_t load_seg = get16(pb);
-            uint16_t reloc_seg = get16(pb + 2);
+            uint16_t load_seg = mem_get_16(pb);
+            uint16_t reloc_seg = mem_get_16(pb + 2);
             FILE *f = fopen(fname, "rb");
             if(!f || dos_read_overlay(f, load_seg, reloc_seg))
             {
@@ -2107,17 +2107,17 @@ void intr21(void)
         {
             debug(debug_dos, "\texec: '%s'\n", fname);
             // Get executable file name:
-            char *prgname = getstr(cpuGetAddrDS(cpuGetDX()), 64);
+            char *prgname = mem_get_str(cpuGetAddrDS(cpuGetDX()), 64);
             // Read command line parameters:
             int pb = cpuGetAddrES(cpuGetBX());
-            int cmd_addr = cpuGetAddress(get16(pb + 4), get16(pb + 2));
+            int cmd_addr = cpuGetAddress(mem_get_16(pb + 4), mem_get_16(pb + 2));
             int clen = memory[cmd_addr];
-            char *cmdline = getstr(cmd_addr + 1, clen);
+            char *cmdline = mem_get_str(cmd_addr + 1, clen);
             debug(debug_dos, "\texec command line: '%s %.*s'\n", prgname, clen, cmdline);
             char *env = "\0\0";
-            uint16_t env_seg = get16(pb);
+            uint16_t env_seg = mem_get_16(pb);
             if(!env_seg)
-                env_seg = get16(cpuGetAddress(get_current_PSP(), 0x2C));
+                env_seg = mem_get_16(cpuGetAddress(get_current_PSP(), 0x2C));
             if(env_seg != 0)
             {
                 // Sanitize env
@@ -2157,8 +2157,8 @@ void intr21(void)
     case 0x4C: // EXIT
         // Detect if our PSP is last one
         debug(debug_dos, "\texit PSP:'%04x', PARENT:%04x.\n", get_current_PSP(),
-              get16(cpuGetAddress(get_current_PSP(), 22)));
-        if(0xFFFE == get16(cpuGetAddress(get_current_PSP(), 22)))
+              mem_get_16(cpuGetAddress(get_current_PSP(), 22)));
+        if(0xFFFE == mem_get_16(cpuGetAddress(get_current_PSP(), 22)))
             exit(ax & 0xFF);
         else
         {
@@ -2167,22 +2167,22 @@ void intr21(void)
             //       child memory.
             return_code = cpuGetAX() & 0xFF;
             // Patch INT 22h, 23h and 24h addresses to the ones saved in new PSP
-            put16(0x88, get16(cpuGetAddress(get_current_PSP(), 10)));
-            put16(0x8A, get16(cpuGetAddress(get_current_PSP(), 12)));
-            put16(0x8C, get16(cpuGetAddress(get_current_PSP(), 14)));
-            put16(0x8E, get16(cpuGetAddress(get_current_PSP(), 16)));
-            put16(0x90, get16(cpuGetAddress(get_current_PSP(), 18)));
-            put16(0x92, get16(cpuGetAddress(get_current_PSP(), 20)));
+            mem_put_16(0x88, mem_get_16(cpuGetAddress(get_current_PSP(), 10)));
+            mem_put_16(0x8A, mem_get_16(cpuGetAddress(get_current_PSP(), 12)));
+            mem_put_16(0x8C, mem_get_16(cpuGetAddress(get_current_PSP(), 14)));
+            mem_put_16(0x8E, mem_get_16(cpuGetAddress(get_current_PSP(), 16)));
+            mem_put_16(0x90, mem_get_16(cpuGetAddress(get_current_PSP(), 18)));
+            mem_put_16(0x92, mem_get_16(cpuGetAddress(get_current_PSP(), 20)));
             // Set PSP to parent
-            set_current_PSP(get16(cpuGetAddress(get_current_PSP(), 22)));
+            set_current_PSP(mem_get_16(cpuGetAddress(get_current_PSP(), 22)));
             // Get last stack
-            cpuSetSS(get16(cpuGetAddress(get_current_PSP(), 0x30)));
-            cpuSetSP(get16(cpuGetAddress(get_current_PSP(), 0x2E)));
+            cpuSetSS(mem_get_16(cpuGetAddress(get_current_PSP(), 0x30)));
+            cpuSetSP(mem_get_16(cpuGetAddress(get_current_PSP(), 0x2E)));
             int stack = cpuGetAddress(cpuGetSS(), cpuGetSP());
             // Fixup interrupt return
-            put16(stack, get16(0x22 * 4));
-            put16(stack + 2, get16(0x22 * 4 + 2));
-            put16(stack + 4, 0xf202);
+            mem_put_16(stack, mem_get_16(0x22 * 4));
+            mem_put_16(stack + 2, mem_get_16(0x22 * 4 + 2));
+            mem_put_16(stack + 4, 0xf202);
             // And exit!
         }
         break;
@@ -2209,8 +2209,8 @@ void intr21(void)
         break;
     case 0x55: // Create CHILD PSP
     {
-        uint8_t *new_psp = getptr(cpuGetAddress(cpuGetDX(), 0), 0x100);
-        uint8_t *orig_psp = getptr(cpuGetAddress(get_current_PSP(), 0), 0x100);
+        uint8_t *new_psp = mem_get_ptr(cpuGetAddress(cpuGetDX(), 0), 0x100);
+        uint8_t *orig_psp = mem_get_ptr(cpuGetAddress(get_current_PSP(), 0), 0x100);
         if(!new_psp || !orig_psp)
         {
             debug(debug_dos, "\tinvalid new PSP segment %04x.\n", cpuGetDX());
@@ -2293,8 +2293,8 @@ void intr21(void)
         break;
     case 0x60: // TRUENAME - CANONICALIZE FILENAME OR PATH
     {
-        uint8_t *path_ptr = getptr(cpuGetAddrDS(cpuGetSI()), 64);
-        uint8_t *out_ptr = getptr(cpuGetAddrES(cpuGetDI()), 128);
+        uint8_t *path_ptr = mem_get_ptr(cpuGetAddrDS(cpuGetSI()), 64);
+        uint8_t *out_ptr = mem_get_ptr(cpuGetAddrES(cpuGetDI()), 128);
 
         if(!path_ptr || !out_ptr)
         {
@@ -2336,8 +2336,8 @@ void intr21(void)
             if(len < 41)
                 break;
             static const uint8_t data[] = {1, 38, 0, 1, 0, 181, 1};
-            putmem(addr, data, 7);
-            putmem(addr + 7, nls_country_info, 34);
+            mem_put(addr, data, 7);
+            mem_put(addr + 7, nls_country_info, 34);
             cpuSetCX(41);
             return;
         }
@@ -2363,8 +2363,8 @@ void intr21(void)
         if(table && len >= 5)
         {
             memory[addr] = ax & 0xFF;
-            put16(addr + 1, table & 0xF);
-            put16(addr + 3, table >> 4);
+            mem_put_16(addr + 1, table & 0xF);
+            mem_put_16(addr + 3, table >> 4);
             cpuSetCX(5);
             return;
         }
@@ -2475,7 +2475,7 @@ static void init_append(void)
     dos_append = get_static_memory(0x100 + 2, 0);
     if(env)
     {
-        put16(dos_append, 0x0001);
+        mem_put_16(dos_append, 0x0001);
         strncpy((char *)memory + dos_append + 2, env, 0xFF);
     }
 }
@@ -2557,12 +2557,12 @@ static void init_nls_data(void)
 
     // Uppercase table
     nls_uppercase_table = get_static_memory(128 + 2 + 16, 0);
-    put16(nls_uppercase_table, 128); // Length
-    putmem(nls_uppercase_table + 2, uppercase_table, 128);
+    mem_put_16(nls_uppercase_table, 128); // Length
+    mem_put(nls_uppercase_table + 2, uppercase_table, 128);
     // Uppercase function
     uint16_t fn_ucase_seg = nls_uppercase_table >> 4;
     uint16_t fn_ucase_off = (nls_uppercase_table & 0xF) + 128 + 2;
-    putmem(nls_uppercase_table + 128 + 2, fn_uppercase, 16);
+    mem_put(nls_uppercase_table + 128 + 2, fn_uppercase, 16);
 
     // Country info
     country_info[18] = fn_ucase_off & 0xFF;
@@ -2573,17 +2573,17 @@ static void init_nls_data(void)
 
     // Terminators table
     nls_terminator_table = get_static_memory(24, 0);
-    putmem(nls_terminator_table, terminator_table, 24);
+    mem_put(nls_terminator_table, terminator_table, 24);
 
     // Collating table
     nls_collating_table = get_static_memory(256 + 2, 0);
-    put16(nls_collating_table, 256); // Length
-    putmem(nls_collating_table + 2, collating_table, 256);
+    mem_put_16(nls_collating_table, 256); // Length
+    mem_put(nls_collating_table + 2, collating_table, 256);
 
     // Double-byte-chars table
     nls_dbc_set_table = get_static_memory(4, 0);
-    put16(nls_dbc_set_table, 0); // Length
-    put16(nls_dbc_set_table, 0); // one entry at least.
+    mem_put_16(nls_dbc_set_table, 0); // Length
+    mem_put_16(nls_dbc_set_table, 0); // one entry at least.
 }
 
 void init_dos(int argc, char **argv)
@@ -2641,7 +2641,7 @@ void init_dos(int argc, char **argv)
 
     // Init SYSVARS
     dos_sysvars = get_static_memory(128, 0);
-    put16(dos_sysvars + 22, 0x0080); // First MCB
+    mem_put_16(dos_sysvars + 22, 0x0080); // First MCB
     // NUL driver
     static const uint8_t null_device[] = {
         0xff, 0xff, 0x00, 0x00,                    // Next driver
@@ -2649,7 +2649,7 @@ void init_dos(int argc, char **argv)
         0x00, 0x00, 0x00, 0x00,                    // Request / Int entry points
         'N',  'U',  'L',  ' ',  ' ', ' ', ' ', ' ' // Name
     };
-    putmem(dos_sysvars + 24 + 0x22, null_device, sizeof(null_device));
+    mem_put(dos_sysvars + 24 + 0x22, null_device, sizeof(null_device));
 
     // Setup default drive
     if(getenv(ENV_DEF_DRIVE))

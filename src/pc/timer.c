@@ -40,7 +40,7 @@ void update_timer(void)
     long cnt = time_to_bios(tv) - start_timer;
     bios_timer = cnt % 0x1800B0;
     bios_dater = (cnt / 0x1800B0) & 0xFF;
-    put32(0x46C, bios_timer);
+    mem_put_32(0x46C, bios_timer);
     memory[0x470] = bios_dater;
 }
 

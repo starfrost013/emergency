@@ -569,7 +569,7 @@ int dos_change_cwd(char *path)
 // changes CWD
 int dos_change_dir(int addr)
 {
-    return dos_change_cwd(getstr(addr, 63));
+    return dos_change_cwd(mem_get_str(addr, 63));
 }
 
 static char *dos_unix_path_base(char *path, int force)
@@ -615,7 +615,7 @@ static char *search_append_path(char *path, const char *append)
 // Converts a DOS full path to equivalent Unix filename
 char *dos_unix_path(int addr, int force, const char *append)
 {
-    char *path = getstr(addr, 63);
+    char *path = mem_get_str(addr, 63);
     debug(debug_dos, "\tconvert dos path '%s'\n", path);
     // Check for standard paths:
     if(*path && (!strcasecmp(path, "NUL") || !strcasecmp(path + 1, ":NUL")))
@@ -628,7 +628,7 @@ char *dos_unix_path(int addr, int force, const char *append)
     if(result || !append)
         return result;
     // Restore original path, and see if path is absolute, so we don't append
-    path = getstr(addr, 63);
+    path = mem_get_str(addr, 63);
     if(!char_valid(path[0]) || (path[1] == ':' && !char_valid(path[2])))
         return result;
     return search_append_path(path, append);
@@ -648,7 +648,7 @@ char *dos_unix_path_fcb(int addr, int force, const char *append)
         append = 0;
     }
     // And copy file name
-    char *fcb_name = getstr(addr + 1, 11);
+    char *fcb_name = mem_get_str(addr + 1, 11);
     debug(debug_dos, "\tconvert dos fcb name %c:'%s'\n", drive + 'A', fcb_name);
 
     // Build filename from FCB
