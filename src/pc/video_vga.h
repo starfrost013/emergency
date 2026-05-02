@@ -32,7 +32,21 @@ typedef enum vga_ports_e
     VGA_CRTC_DATA_COLOR = 0x03D5,
 } vga_ports;
 
+#define VGA_NUM_CRTC        0x18
+#define VGA_NUM_SEQ         4
+
 typedef struct vga_s
 {
+    uint8_t attr;
+    uint8_t input0;
+    uint8_t input1;
+    uint8_t crtc_addr;
+    uint8_t crtc[VGA_NUM_CRTC];
+    uint8_t seq_addr;
+    uint8_t seq[VGA_NUM_SEQ];
+    uint8_t gr_addr;
+    uint8_t palette_read_addr;
+    uint8_t palette_write_addr;
 
+    bool flipflop;
 } vga_t; 
