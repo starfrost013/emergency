@@ -47,6 +47,6 @@ typedef struct vga_s
     uint8_t gr_addr;
     uint8_t palette_read_addr;
     uint8_t palette_write_addr;
-
+    uint8_t feature_control;
     bool flipflop;
 } vga_t; 

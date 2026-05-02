@@ -14,6 +14,8 @@
 #include <termios.h>
 #include <unistd.h>
 
+video_gpu_t video_gpu_text;
+
 // Color cell: une byte for the value and one for the color
 union term_cell
 {

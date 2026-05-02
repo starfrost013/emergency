@@ -16,3 +16,14 @@ uint8_t video_crtc_read(int port);
 void video_crtc_write(int port, uint8_t value);
 // Initializes emulated video memory and tables
 void video_init_mem(void);
+
+typedef struct video_gpu_s
+{
+    void (*gpu_init)(void);
+    void (*gpu_shutdown)(void);
+    void (*gpu_init_mem)(void);
+    void (*gpu_reg_read8)(uint8_t addr);
+    void (*gpu_reg_write8)(uint8_t addr, uint8_t value);
+} video_gpu_t; 
+
+extern video_gpu_t video_gpu_text;
