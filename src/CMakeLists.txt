@@ -23,4 +23,5 @@ add_executable(emergency
     pc/video.c
 
     util/utils.c
+    pc/video_list.c
 )

@@ -28,7 +28,7 @@ void emulator_update(void)
     debug(debug_int, "emu update cycle\n");
     cpuTriggerIRQ(0);
     update_timer();
-    check_screen();
+    video_check_screen();
     update_keyb();
     fflush(stdout);
 }

@@ -77,7 +77,7 @@ interrupt_table_t bios_interrupts[] =
     keyb_handle_irq, NULL, NULL, NULL, 
     NULL, NULL, NULL, NULL,
       
-    intr10, intr11, intr12, NULL,
+    video_text_intr10, intr11, intr12, NULL,
     NULL, NULL, intr16, NULL,
     intr19, intr1A, NULL, NULL,
     NULL, NULL, NULL, NULL,

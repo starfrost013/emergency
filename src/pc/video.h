@@ -2,9 +2,9 @@
 
 #include <stdint.h>
 
-void intr10(void);
+void video_text_intr10(void);
 // Redraws terminal screen
-void check_screen(void);
+void video_check_screen(void);
 // Returns 1 if video emulation is active.
 int video_active(void);
 // Writes a character to the video screen
@@ -24,6 +24,7 @@ typedef struct video_gpu_s
     void (*gpu_init_mem)(void);
     void (*gpu_reg_read8)(uint8_t addr);
     void (*gpu_reg_write8)(uint8_t addr, uint8_t value);
+    void (*gpu_int10)();
 } video_gpu_t; 
 
-extern video_gpu_t video_gpu_text;
+extern video_gpu_t video_gpus[];

@@ -14,8 +14,6 @@
 #include <termios.h>
 #include <unistd.h>
 
-video_gpu_t video_gpu_text;
-
 // Color cell: une byte for the value and one for the color
 union term_cell
 {
@@ -53,7 +51,7 @@ static int video_initialized;
 static uint16_t crtc_cursor_loc;
 
 // Forward
-static void term_goto_xy(unsigned x, unsigned y);
+static void video_term_goto_xy(unsigned x, unsigned y);
 
 // Signal handler - terminal size changed
 // TODO: not used yet.
@@ -65,7 +63,7 @@ static void sigwinch_handler(int sig)
 #endif
 
 // Returns a cell from character and color.
-static union term_cell get_cell(uint8_t chr, uint8_t color)
+static union term_cell video_get_cell(uint8_t chr, uint8_t color)
 {
     union term_cell c;
     c.chr = chr;
@@ -73,7 +71,7 @@ static union term_cell get_cell(uint8_t chr, uint8_t color)
     return c;
 }
 
-static void term_get_size(void)
+static void video_term_get_size(void)
 {
     struct winsize ws;
     if(ioctl(fileno(tty_file), TIOCGWINSZ, &ws) != -1 &&
@@ -98,7 +96,7 @@ static void term_get_size(void)
 }
 
 // Update posx/posy in BIOS memory and CRTC for one page only
-static void update_posxy_page(int page)
+static void video_update_posxy_page(int page)
 {
     memory[0x450 + page * 2] = vid_posx[page];
     memory[0x451 + page * 2] = vid_posy[page];
@@ -107,7 +105,7 @@ static void update_posxy_page(int page)
 }
 
 // Update posx/posy in BIOS memory and CRTC
-static void update_posxy(void)
+static void video_update_posxy(void)
 {
     int vid_size = vid_sy > 25 ? 0x20 : 0x10;
     memory[0x44C] = 0x00;
@@ -123,13 +121,13 @@ static void update_posxy(void)
     crtc_cursor_loc = vid_posx[vid_page] + vid_posy[vid_page] * vid_sx;
 }
 
-static void reload_posxy(int page)
+static void video_reload_posxy(int page)
 {
     vid_posx[page] = memory[0x450 + page * 2];
     vid_posy[page] = memory[0x451 + page * 2];
 }
 
-static void reload_posxy_all(void)
+static void video_reload_posxy_all(void)
 {
     for(int i = 0; i < 8; i++)
     {
@@ -139,22 +137,22 @@ static void reload_posxy_all(void)
 }
 
 // Clears the terminal data - not the actual terminal screen
-static void clear_terminal(void)
+static void video_clear_terminal(void)
 {
     debug(debug_video, "clear terminal shadow\n");
     // Clear screen terminal:
     for(int y = 0; y < 64; y++)
         for(int x = 0; x < 256; x++)
-            term_screen[y][x] = get_cell(0x20, 0x07);
+            term_screen[y][x] = video_get_cell(0x20, 0x07);
     output_row = -1;
     term_posx = 0;
     term_posy = 0;
     // Get current terminal size
-    term_get_size();
+    video_term_get_size();
     putc('\r', tty_file); // Go to column 0
 }
 
-static void set_text_mode(int mode, int clear)
+static void video_set_text_mode(int mode, int clear)
 {
     debug(debug_video, "set text mode %d%s\n", mode, clear ? " and clear" : "");
     // Clear video screen
@@ -162,7 +160,7 @@ static void set_text_mode(int mode, int clear)
     {
         uint16_t *vm = (uint16_t *)(memory + 0xB8000);
         for(int i = 0; i < 16384; i++)
-            vm[i] = get_cell(0x20, 0x07).value;
+            vm[i] = video_get_cell(0x20, 0x07).value;
     }
     for(int i = 0; i < 8; i++)
     {
@@ -189,7 +187,7 @@ static void set_text_mode(int mode, int clear)
     memory[0x449] = mode;                             // video mode
     memory[0x44A] = vid_sx;                           // screen columns
     memory[0x44B] = 0;                                // ...
-    update_posxy();                                   // Updates 0x4C to 0x5F and 0x62
+    video_update_posxy();                                   // Updates 0x4C to 0x5F and 0x62
     memory[0x460] = 0x07;                             // cursor end scan line
     memory[0x461] = 0x06;                             // cursor start scan line
     memory[0x463] = 0xD4;                             // I/O port of video CRTC
@@ -204,30 +202,30 @@ static void set_text_mode(int mode, int clear)
     memory[0x489] = !ega ? 0xC1 : !vga ? 0x41 : 0x51; // MODE set option control
 }
 
-static unsigned get_last_used_row(void)
+static unsigned video_get_last_used_row(void)
 {
     unsigned max = 0;
     for(unsigned y = 0; y < vid_sy; y++)
         for(unsigned x = 0; x < vid_sx; x++)
-            if(term_screen[y][x].value != get_cell(0x00, 0x7).value &&
-               term_screen[y][x].value != get_cell(0x20, 0x7).value)
+            if(term_screen[y][x].value != video_get_cell(0x00, 0x7).value &&
+               term_screen[y][x].value != video_get_cell(0x20, 0x7).value)
                 max = y + 1;
     return max;
 }
 
-static void exit_video(void)
+static void video_shutdown(void)
 {
     vid_cursor = 1;
-    check_screen();
-    unsigned max = get_last_used_row();
-    term_goto_xy(0, max);
+    video_check_screen();
+    unsigned max = video_get_last_used_row();
+    video_term_goto_xy(0, max);
     fputs("\x1b[?7h", tty_file); // Re-enable margin
     fputs("\x1b[m", tty_file);
     fclose(tty_file);
     debug(debug_video, "exit video - row %u\n", max);
 }
 
-static void init_video(void)
+static void video_init(void)
 {
     debug(debug_video, "starting video emulation.\n");
     int tty_fd = open("/dev/tty", O_NOCTTY | O_WRONLY);
@@ -237,10 +235,10 @@ static void init_video(void)
     if(!tty_file)
         print_error("error at open TTY, %s\n", strerror(errno));
     fputs("\x1b[?7l", tty_file); // Disable automatic margin
-    atexit(exit_video);
+    atexit(video_shutdown);
     video_initialized = 1;
 
-    clear_terminal();
+    video_clear_terminal();
     term_needs_update = 0;
     term_cursor = 1;
     term_color = 0x07;
@@ -251,7 +249,7 @@ int video_active(void)
     return video_initialized;
 }
 
-static void set_color(uint8_t c)
+static void video_set_color(uint8_t c)
 {
     if(term_color != c)
     {
@@ -267,7 +265,7 @@ static void vid_set_font(unsigned lines)
     if(vid_font_lines == lines || lines < 4 || lines > 32)
         return; // No change
     // Get current and new number of "used" rows:
-    unsigned max = get_last_used_row();
+    unsigned max = video_get_last_used_row();
     unsigned rows = vid_scan_lines / lines;
     if(rows > 64)
         rows = 64;
@@ -278,12 +276,12 @@ static void vid_set_font(unsigned lines)
     // Clear end-of-screen if we are reducing the height
     if(video_active() && max > rows)
     {
-        term_goto_xy(0, rows - 1);
-        set_color(0x07);
+        video_term_goto_xy(0, rows - 1);
+        video_set_color(0x07);
         fputs("\x1b[J", tty_file);
         for(int y = rows; y < 64; y++)
             for(int x = 0; x < 256; x++)
-                term_screen[y][x] = get_cell(0x20, 0x07);
+                term_screen[y][x] = video_get_cell(0x20, 0x07);
         if(output_row > (int)rows - 1)
             output_row = rows - 1;
     }
@@ -293,7 +291,7 @@ static void vid_set_font(unsigned lines)
     memory[0x484] = vid_sy - 1;
     memory[0x485] = vid_font_lines;
     memory[0x486] = 0;
-    update_posxy();
+    video_update_posxy();
 }
 
 void video_init_mem(void)
@@ -311,7 +309,7 @@ void video_init_mem(void)
     memory[0x488] = 9;    // No CGA emulation
     memory[0x489] = 0x10; // VGA, 400 lines
     // Set video mode 3 and clear screen
-    set_text_mode(3, 1);
+    video_set_text_mode(3, 1);
     // Setup non-standard mode:
     if(getenv(ENV_ROWS))
     {
@@ -343,7 +341,7 @@ static void put_vc(uint8_t c)
 }
 
 // Move terminal cursor to the position
-static void term_goto_xy(unsigned x, unsigned y)
+static void video_term_goto_xy(unsigned x, unsigned y)
 {
     if(y >= term_sy)
         y = term_sy - 1;
@@ -359,7 +357,7 @@ static void term_goto_xy(unsigned x, unsigned y)
         putc('\r', tty_file);
         // Set background color to black, as some terminals insert lines with
         // the current background color.
-        set_color(term_color & 0x0F);
+        video_set_color(term_color & 0x0F);
         // TODO: Draw new line with background color from video screen
         for(unsigned i = term_posy; i < y; i++)
             putc('\n', tty_file);
@@ -384,8 +382,8 @@ static void term_goto_xy(unsigned x, unsigned y)
 // Outputs a character with the given attributes at the given position
 static void put_vc_xy(uint8_t vc, uint8_t color, unsigned x, unsigned y)
 {
-    term_goto_xy(x, y);
-    set_color(color);
+    video_term_goto_xy(x, y);
+    video_set_color(color);
 
     put_vc(vc);
     term_posx++;
@@ -397,7 +395,7 @@ static void put_vc_xy(uint8_t vc, uint8_t color, unsigned x, unsigned y)
 }
 
 // Save screen dump to video log
-static void debug_screen(void)
+static void video_dump_screen(void)
 {
     // Exit if not in video mode
     if(!video_initialized || !debug_active(debug_video))
@@ -428,14 +426,14 @@ static void debug_screen(void)
 }
 
 // Compares current screen with memory data
-void check_screen(void)
+void video_check_screen(void)
 {
     // Exit if not in video mode
     if(!video_initialized)
         return;
 
     debug(debug_video, "check_screen, redrawing\n");
-    debug_screen();
+    video_dump_screen();
 
     uint16_t memp = (vid_page & 7) * (vid_sy > 25 ? 0x2000 : 0x1000);
     uint16_t *vm = (uint16_t *)(memory + 0xB8000 + memp);
@@ -469,12 +467,12 @@ void check_screen(void)
     if(term_cursor && vid_sx)
     {
         // Move cursor
-        term_goto_xy(crtc_cursor_loc % vid_sx, crtc_cursor_loc / vid_sx);
+        video_term_goto_xy(crtc_cursor_loc % vid_sx, crtc_cursor_loc / vid_sx);
     }
     fflush(tty_file);
 }
 
-static void vid_scroll_up(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1, int n, int page)
+static void video_scroll_up(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1, int n, int page)
 {
     debug(debug_video, "scroll up %d: (%d, %d) - (%d, %d)\n", n, x0, y0, x1, y1);
 
@@ -492,10 +490,10 @@ static void vid_scroll_up(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1, int n,
     if(y0 == 0 && y1 >= vid_sy - 2 && x0 < 2 && x1 >= vid_sx - 2)
     {
         // Update screen before
-        check_screen();
+        video_check_screen();
         unsigned m = n > output_row + 1 ? output_row + 1 : n;
         if(term_posy < m)
-            term_goto_xy(0, m);
+            video_term_goto_xy(0, m);
         output_row -= m;
         term_posy -= m;
         for(unsigned y = 0; y + m < term_sy; y++)
@@ -503,10 +501,10 @@ static void vid_scroll_up(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1, int n,
                 term_screen[y][x].value = term_screen[y + m][x].value;
         for(unsigned y = term_sy - m; y < term_sy; y++)
             for(unsigned x = 0; x < term_sx; x++)
-                term_screen[y][x] = get_cell(0x20, 0x07);
+                term_screen[y][x] = video_get_cell(0x20, 0x07);
     }
     else
-        debug_screen();
+        video_dump_screen();
 
     // Scroll VIDEO
     uint16_t memp = (page & 7) * (vid_sy > 25 ? 0x2000 : 0x1000);
@@ -517,17 +515,17 @@ static void vid_scroll_up(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1, int n,
     // Set last rows
     for(unsigned y = y1 - (n - 1); y <= y1; y++)
         for(unsigned x = x0; x <= x1; x++)
-            vm[x + y * vid_sx] = get_cell(0x20, vid_color).value;
+            vm[x + y * vid_sx] = video_get_cell(0x20, vid_color).value;
 
     debug(debug_video, "after scroll\n");
-    debug_screen();
+    video_dump_screen();
 }
 
-static void vid_scroll_dwn(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1, unsigned n,
+static void video_scroll_down(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1, unsigned n,
                            int page)
 {
     debug(debug_video, "scroll down %u: (%u, %u) - (%u, %u)\n", n, x0, y0, x1, y1);
-    debug_screen();
+    video_dump_screen();
 
     // Check parameters
     if(x1 >= vid_sx)
@@ -550,34 +548,34 @@ static void vid_scroll_dwn(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1, unsig
     // Set first rows
     for(unsigned y = y0; y < y0 + n; y++)
         for(unsigned x = x0; x <= x1; x++)
-            vm[x + y * vid_sx] = get_cell(0x20, vid_color).value;
+            vm[x + y * vid_sx] = video_get_cell(0x20, vid_color).value;
 
     debug(debug_video, "after scroll\n");
-    debug_screen();
+    video_dump_screen();
 }
 
-static uint16_t *addr_xy(unsigned x, unsigned y, int page)
+static uint16_t *video_get_xy_addr(unsigned x, unsigned y, int page)
 {
     uint16_t mem = (page & 7) * (vid_sy > 25 ? 0x2000 : 0x1000);
     uint16_t *vm = (uint16_t *)(memory + 0xB8000 + mem);
     return &vm[x + y * vid_sx];
 }
 
-static void set_xy_char(unsigned x, unsigned y, uint8_t chr, int page)
+static void video_set_xy_char(unsigned x, unsigned y, uint8_t chr, int page)
 {
-    uint16_t *p = addr_xy(x, y, page);
+    uint16_t *p = video_get_xy_addr(x, y, page);
     union term_cell cell;
     cell.value = *p;
     cell.chr = chr;
     *p = cell.value;
 }
 
-static void set_xy_full(unsigned x, unsigned y, uint8_t chr, uint8_t color, int page)
+static void video_set_xy_full(unsigned x, unsigned y, uint8_t chr, uint8_t color, int page)
 {
-    *addr_xy(x, y, page) = get_cell(chr, color).value;
+    *video_get_xy_addr(x, y, page) = video_get_cell(chr, color).value;
 }
 
-static uint16_t get_xy(unsigned x, unsigned y, int page)
+static uint16_t video_get_xy(unsigned x, unsigned y, int page)
 {
     uint16_t mem = (page & 7) * (vid_sy > 25 ? 0x2000 : 0x1000);
     uint16_t *vm = (uint16_t *)(memory + 0xB8000 + mem);
@@ -595,7 +593,7 @@ static void video_putchar(uint8_t ch, uint16_t at, int page)
         while(vid_posy[page] >= vid_sy)
         {
             vid_posy[page] = vid_sy - 1;
-            vid_scroll_up(0, 0, vid_sx - 1, vid_sy - 1, 1, page);
+            video_scroll_up(0, 0, vid_sx - 1, vid_sy - 1, 1, page);
         }
     }
     else if(ch == 0x0D)
@@ -614,9 +612,9 @@ static void video_putchar(uint8_t ch, uint16_t at, int page)
     else
     {
         if(at & 0xFF00)
-            set_xy_char(vid_posx[page], vid_posy[page], ch, page);
+            video_set_xy_char(vid_posx[page], vid_posy[page], ch, page);
         else
-            set_xy_full(vid_posx[page], vid_posy[page], ch, at, page);
+            video_set_xy_full(vid_posx[page], vid_posy[page], ch, at, page);
         vid_posx[page]++;
         if(vid_posx[page] >= vid_sx)
         {
@@ -625,25 +623,25 @@ static void video_putchar(uint8_t ch, uint16_t at, int page)
             while(vid_posy[page] >= vid_sy)
             {
                 vid_posy[page] = vid_sy - 1;
-                vid_scroll_up(0, 0, vid_sx - 1, vid_sy - 1, 1, page);
+                video_scroll_up(0, 0, vid_sx - 1, vid_sy - 1, 1, page);
             }
         }
     }
-    update_posxy_page(page);
+    video_update_posxy_page(page);
 }
 
 void video_putch(char ch)
 {
     if(!video_initialized)
-        init_video();
-    reload_posxy(vid_page);
+        video_init();
+    video_reload_posxy(vid_page);
     debug(debug_video, "putchar %02x at (%u,%u)\n", ch & 0xFFU, vid_posx[vid_page],
           vid_posy[vid_page]);
     video_putchar(ch, 0xFF00, vid_page);
 }
 
 // VIDEO int
-void intr10(void)
+void video_text_intr10(void)
 {
     debug(debug_int, "V-10%04X: BX=%04X\n", cpuGetAX(), cpuGetBX());
     debug(debug_video, "V-10%04X: BX=%04X CX=%04X DX=%04X\n", cpuGetAX(), cpuGetBX(),
@@ -653,7 +651,7 @@ void intr10(void)
     keyb_wakeup();
 
     if(!video_initialized)
-        init_video();
+        video_init();
     unsigned ax = cpuGetAX();
     switch(ax >> 8)
     {
@@ -661,7 +659,7 @@ void intr10(void)
         if((ax & 0x7F) > 3)
             debug(debug_video, "-> SET GRAPHICS MODE %x<-\n", ax & 0xFF);
         else
-            set_text_mode(ax & 0x7F, (ax & 0x80) == 0);
+            video_set_text_mode(ax & 0x7F, (ax & 0x80) == 0);
         break;
     case 0x01:                              // SET CURSOR SHAPE
         if((cpuGetCX() & 0x6000) == 0x2000) // Hide cursor
@@ -686,13 +684,13 @@ void intr10(void)
             vid_posx[page] = vid_sx - 1;
         if(vid_posy[page] >= vid_sy)
             vid_posy[page] = vid_sy - 1;
-        update_posxy_page(page);
+        video_update_posxy_page(page);
         break;
     }
     case 0x03: // GET CURSOR POS
     {
         int page = (cpuGetBX() >> 8) & 7;
-        reload_posxy(page);
+        video_reload_posxy(page);
         cpuSetDX(vid_posx[page] + (vid_posy[page] << 8));
         cpuSetCX(0x0010);
         break;
@@ -702,30 +700,30 @@ void intr10(void)
             debug(debug_video, "WARN: Select display page > 7!\n");
         else
         {
-            reload_posxy_all();
+            video_reload_posxy_all();
             vid_page = ax & 7;
-            update_posxy();
+            video_update_posxy();
         }
         break;
     case 0x06: // SCROLL UP WINDOW
     {
         uint16_t cx = cpuGetCX(), dx = cpuGetDX();
         vid_color = cpuGetBX() >> 8;
-        vid_scroll_up(cx, cx >> 8, dx, dx >> 8, ax & 0xFF, vid_page);
+        video_scroll_up(cx, cx >> 8, dx, dx >> 8, ax & 0xFF, vid_page);
         break;
     }
     case 0x07: // SCROLL DOWN WINDOW
     {
         uint16_t cx = cpuGetCX(), dx = cpuGetDX();
         vid_color = cpuGetBX() >> 8;
-        vid_scroll_dwn(cx, cx >> 8, dx, dx >> 8, ax & 0xFF, vid_page);
+        video_scroll_down(cx, cx >> 8, dx, dx >> 8, ax & 0xFF, vid_page);
         break;
     }
     case 0x08: // READ CHAR AT CURSOR
     {
         int page = (cpuGetBX() >> 8) & 7;
-        reload_posxy(page);
-        cpuSetAX(get_xy(vid_posx[page], vid_posy[page], page));
+        video_reload_posxy(page);
+        cpuSetAX(video_get_xy(vid_posx[page], vid_posy[page], page));
         break;
     }
     case 0x09: // WRITE CHAR AT CURSOR
@@ -733,7 +731,7 @@ void intr10(void)
     {
         int page = (cpuGetBX() >> 8) & 7;
         int full = (ax & 0x0100) ? 1 : 0;
-        reload_posxy(page);
+        video_reload_posxy(page);
         uint16_t px = vid_posx[page];
         uint16_t py = vid_posy[page];
         uint16_t ch = ax & 0xFF;
@@ -741,9 +739,9 @@ void intr10(void)
         for(int i = cpuGetCX(); i > 0; i--)
         {
             if(full)
-                set_xy_full(px, py, ch, at, page);
+                video_set_xy_full(px, py, ch, at, page);
             else
-                set_xy_char(px, py, ch, page);
+                video_set_xy_char(px, py, ch, page);
             px++;
             if(px >= vid_sx)
             {
@@ -758,7 +756,7 @@ void intr10(void)
     case 0x0E: // TELETYPE OUTPUT
     {
         int page = (cpuGetBX() >> 8) & 7;
-        reload_posxy(page);
+        video_reload_posxy(page);
         video_putchar(ax, 0xFF00, page);
         break;
     }
@@ -875,7 +873,7 @@ void intr10(void)
             vid_posx[page] = save_posx;
             vid_posy[page] = save_posy;
         }
-        update_posxy_page(page);
+        video_update_posxy_page(page);
     }
     break;
     case 0x1A: // GET/SET DISPLAY COMBINATION CODE
