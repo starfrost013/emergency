@@ -118,7 +118,7 @@ void debug_init(const char *base)
     }
 }
 
-int debug_active(enum debug_type dt)
+int debug_active(debug_type dt)
 {
     if(dt < debug_MAX)
         return debug_files[dt] != 0;
@@ -126,7 +126,7 @@ int debug_active(enum debug_type dt)
         return 0;
 }
 
-void debug(enum debug_type dt, const char *format, ...)
+void debug(debug_type dt, const char *format, ...)
 {
     va_list ap;
     if(debug_active(dt))

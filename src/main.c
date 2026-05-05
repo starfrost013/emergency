@@ -204,3 +204,11 @@ int main(int argc, char **argv)
         emulator_update();
     }
 }
+
+// Fatal error code.
+// Temporary until SL5 implementation
+void emu_fatal(const char* s)
+{
+    fprintf(stdout, "Fatal Error: %s", s);
+    exit_handler(1);
+}

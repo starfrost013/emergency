@@ -8,6 +8,9 @@
 extern volatile int exit_cpu;
 extern uint8_t memory[];
 
+#define STRING_MAX_PATH             260                 // Maximum path
+#define STRING_MAX_GENERIC          256                 // Generic maximum string length.
+
 int cpuGetAddress(uint16_t segment, uint16_t offset);
 int cpuGetAddrDS(uint16_t offset);
 int cpuGetAddrES(uint16_t offset);
@@ -22,6 +25,8 @@ void bios_routine(unsigned inum);
 // CPU interface
 void cpu_execute(void); // 1 ins.
 void cpu_init(void);
+
+void emu_fatal(const char* s);
 
 // async HW update
 void emulator_update(void);

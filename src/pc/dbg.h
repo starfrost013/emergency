@@ -11,7 +11,7 @@ NORETURN void print_usage(void);
 NORETURN void print_usage_error(PRINTF_FORMAT const char *format, ...) PRINTF_FORMAT_ATTR(1, 2);
 NORETURN void print_error(PRINTF_FORMAT const char *format, ...) PRINTF_FORMAT_ATTR(1, 2);
 
-enum debug_type
+typedef enum debug_type_e
 {
     debug_cpu,
     debug_int,
@@ -20,8 +20,8 @@ enum debug_type
     debug_video,
     debug_verbose, 
     debug_MAX
-};
+} debug_type;
 
 void debug_init(const char *name);
-void debug(enum debug_type, PRINTF_FORMAT const char *format, ...) PRINTF_FORMAT_ATTR(2, 3);
-int debug_active(enum debug_type);
+void debug(debug_type, PRINTF_FORMAT const char *format, ...) PRINTF_FORMAT_ATTR(2, 3);
+int debug_active(debug_type);
